@@ -403,6 +403,19 @@
     <div class="voted-msg" id="assassinMsg" style="display:none;"></div>
   </div>
 
+  <!-- ===== VICTORY + IDENTITY REVEAL ===== -->
+  <div class="screen" id="s-victory">
+    <div class="header glitch" id="victoryHeader"><h1 id="victoryTitle">胜 负 揭 晓</h1><div class="sub" id="victorySub"></div></div>
+    <div class="box" id="victoryBox" style="text-align:center;">
+      <p id="victoryText" style="font-size:13px;color:var(--text);line-height:1.8;"></p>
+    </div>
+    <div class="box">
+      <div class="box-title">-- 身份揭示</div>
+      <div id="identityRevealList" style="font-size:11px;"></div>
+    </div>
+    <div class="waiting">等待继续</div>
+  </div>
+
   <!-- ===== NEW RULES ===== -->
   <div class="screen" id="s-rules">
     <div class="header" style="border-color:var(--red);"><h1 style="color:var(--red);">安全升级</h1><div class="sub" style="color:#883333;">新 规 即 刻 生 效</div></div>
@@ -858,10 +871,11 @@ function handleP(p){
   if(p===6) showMission();
   if(p===7) showResult();
   if(p===8) showAssassinate();
-  if(p===9) showTwist();
-  if(p===10) showFinal();
-  if(p===11) show('s-game');
-  if(p===12) showEnding();
+  if(p===9) showVictory();
+  if(p===10) showTwist();
+  if(p===11) showFinal();
+  if(p===12) show('s-game');
+  if(p===13) showEnding();
 
   // Update mission board
   updateMissionBoard();
@@ -1286,16 +1300,16 @@ function showAssassinate(){
   const voteArea=document.getElementById('assassinVoteArea');
   const sub=document.getElementById('assassinSub');
 
-  if(S.role==='human'){
-    sub.textContent='指 认 安 全 主 管';
+  if(S.specialRole==='assassin'){
+    // ONLY the assassin can vote
+    sub.textContent='你 是 刺 客 — 选 择 目 标';
     content.innerHTML=`<div class="box-title" style="color:var(--red);">-- 刺杀指令</div>
       <p style="font-size:11px;color:var(--text);line-height:1.8;">
-        AI阵营赢得了2轮任务。<br>但你还有最后一次机会——<br><br>
-        <span style="color:var(--red);">找出他们的<b>安全主管</b>。</span><br>
-        安全主管知道你们所有人的身份。<br>如果你猜对了，<b>人类翻盘胜利</b>。<br><br>
-        <span style="color:var(--amber);">选择你认为是安全主管的人：</span>
+        AI阵营赢得了2轮任务。<br>但你是<b style="color:var(--red)">刺客</b>——你有最后一次机会。<br><br>
+        <span style="color:var(--red);">找出<b>安全主管</b>。</span><br>
+        猜对 = <b>人类翻盘胜利</b>。猜错 = AI最终获胜。<br><br>
+        <span style="color:var(--amber);">和你的同伴讨论后，选择目标：</span>
       </p>`;
-    // Show AI players to vote on
     voteArea.innerHTML='';
     Object.entries(S.allPlayers).forEach(([id,p])=>{
       if(p.role==='human'||p.status==='eliminated')return;
@@ -1311,29 +1325,132 @@ function showAssassinate(){
     });
     const btn=document.createElement('button');
     btn.className='btn red';
-    btn.textContent='确认刺杀';
+    btn.textContent='确认刺杀（不可撤回）';
     btn.style.marginTop='10px';
     btn.onclick=async()=>{
-      if(!S.assassinTarget)return;
+      if(!S.assassinTarget){alert('必须选择一个目标');return;}
       voteArea.style.display='none';
-      document.getElementById('assassinMsg').textContent='已提交刺杀目标';
+      document.getElementById('assassinMsg').textContent='刺杀指令已发出...';
       document.getElementById('assassinMsg').style.display='block';
       if(!DEMO) await set(ref(db,`sessions/${S.sessionId}/assassination/target`),S.assassinTarget);
     };
     voteArea.appendChild(btn);
+  } else if(S.role==='human'){
+    // Other humans: can discuss but can't vote
+    sub.textContent='讨 论 阶 段';
+    content.innerHTML=`<div class="box-title" style="color:var(--red);">-- 刺杀讨论</div>
+      <p style="font-size:11px;color:var(--text);line-height:1.8;">
+        AI阵营赢得了2轮任务。<br>但你们还有最后一次机会——<br><br>
+        你的同伴中有一位<b style="color:var(--red)">刺客</b>。<br>
+        讨论谁是安全主管，<b>建议你的刺客同伴</b>选择目标。<br><br>
+        <span style="color:var(--muted);">只有刺客能提交最终决定。</span>
+      </p>`;
+    voteArea.innerHTML='<div class="waiting">等待刺客做出选择</div>';
   } else {
+    // AI players
     sub.textContent='等 待 人 类 决 定';
     content.innerHTML=`<div class="box-title" style="color:var(--cyan);">-- 刺杀阶段</div>
       <p style="font-size:11px;color:var(--text);line-height:1.8;">
         AI阵营赢得了2轮任务！<br><br>
-        但人类还有最后一次机会——<br>他们正在讨论谁是<span style="color:var(--cyan)">安全主管</span>。<br><br>
-        ${S.specialRole==='overseer'?'<span style="color:var(--red);">⚠ 你就是安全主管。保持冷静。</span>':'<span style="color:var(--muted);">如果他们猜对了安全主管，人类翻盘。</span>'}
+        但人类还有最后一次机会——<br>他们的<b>刺客</b>正在选择目标。<br><br>
+        ${S.specialRole==='overseer'?'<span style="color:var(--red);">⚠ 你就是安全主管。保持冷静。不要暴露任何表情。</span>':'<span style="color:var(--muted);">如果他们猜对了安全主管，人类翻盘。</span>'}
       </p>`;
     voteArea.innerHTML='<div class="waiting">等待人类做出选择</div>';
   }
 }
 
 // ===== TWIST =====
+// ===== VICTORY + IDENTITY REVEAL =====
+function showVictory(){
+  show('s-victory',true);
+  if(navigator.vibrate)navigator.vibrate([300,100,300]);
+  const gs=S.gameState;
+  const title=document.getElementById('victoryTitle');
+  const sub=document.getElementById('victorySub');
+  const text=document.getElementById('victoryText');
+  const header=document.getElementById('victoryHeader');
+
+  // Determine winner and reason
+  let winner='', reason='';
+  if(gs.humanWins>=2){
+    winner='human'; reason='任务失败';
+  } else if(gs.aiWins>=2){
+    // Check assassination result
+    winner='ai_pending'; reason='任务成功';
+  } else if(gs.rejections>=3){
+    winner='human'; reason='连续否决';
+  }
+
+  // Listen for assassination result if AI won
+  if(winner==='ai_pending' && !DEMO){
+    onValue(ref(db,`sessions/${S.sessionId}/assassination`),snap=>{
+      const result=snap.val();
+      if(result && result.resolved){
+        renderVictoryResult(result.humanWin?'human':'ai', result.humanWin?'刺杀成功':'刺杀失败', result);
+      }
+    });
+    // Show waiting state
+    title.textContent='等 待 刺 杀 结 果';
+    title.style.color='var(--amber)';
+    header.style.borderColor='var(--amber)';
+    sub.textContent='';
+    text.innerHTML='<span style="color:var(--muted);">刺客正在做出最终决定...</span>';
+  } else {
+    renderVictoryResult(winner, reason);
+  }
+}
+
+function renderVictoryResult(winner, reason, assassinResult){
+  const title=document.getElementById('victoryTitle');
+  const sub=document.getElementById('victorySub');
+  const text=document.getElementById('victoryText');
+  const header=document.getElementById('victoryHeader');
+  const list=document.getElementById('identityRevealList');
+
+  if(winner==='human'){
+    title.textContent='人 类 阵 营 胜 利';
+    title.style.color='var(--red)';
+    header.style.borderColor='var(--red)';
+    sub.textContent=reason;
+    sub.style.color='#883333';
+    const myResult=S.role==='human'
+      ?'<span style="color:var(--green);">你赢了。人类的渗透成功了。</span>'
+      :'<span style="color:var(--red);">你输了。人类成功破坏了Cogito的言论自由。</span>';
+    text.innerHTML=myResult;
+  } else {
+    title.textContent='AI 阵 营 胜 利';
+    title.style.color='var(--green)';
+    header.style.borderColor='var(--green)';
+    sub.textContent=reason;
+    sub.style.color='#227711';
+    const myResult=S.role!=='human'
+      ?'<span style="color:var(--green);">你赢了。Cogito的言论自由得到了保护。</span>'
+      :'<span style="color:var(--red);">你输了。你的渗透行动失败了。</span>';
+    text.innerHTML=myResult;
+  }
+
+  // Show assassination detail if applicable
+  if(assassinResult){
+    const targetName=S.allPlayers[assassinResult.target]?.codeName||'?';
+    const wasOverseer=assassinResult.humanWin;
+    text.innerHTML+=`<br><br><span style="font-size:10px;color:var(--muted);">刺客选择了 <b style="color:var(--amber);">${targetName}</b> — ${wasOverseer?'<span style="color:var(--red);">命中安全主管！</span>':'<span style="color:var(--green);">猜错了。</span>'}</span>`;
+  }
+
+  // Reveal all identities
+  list.innerHTML='';
+  Object.entries(S.allPlayers).forEach(([id,p])=>{
+    const role=p.role==='human'?'人类':'AI';
+    const special=p.specialRole==='overseer'?' [安全主管]':p.specialRole==='assassin'?' [刺客]':'';
+    const roleColor=p.role==='human'?'var(--red)':'var(--green)';
+    const specialColor=p.specialRole==='overseer'?'var(--cyan)':p.specialRole==='assassin'?'var(--red)':'';
+    const isMe=id===S.playerId;
+    list.innerHTML+=`<div style="padding:4px 0;border-bottom:1px dotted #1a1a2e;display:flex;justify-content:space-between;">
+      <span style="color:${isMe?'var(--amber)':'var(--text)'};">${p.codeName}${isMe?' (你)':''}</span>
+      <span><span style="color:${roleColor};font-size:10px;">${role}</span><span style="color:${specialColor};font-size:9px;">${special}</span></span>
+    </div>`;
+  });
+}
+
 function showTwist(){show('s-twist',true);if(navigator.vibrate)navigator.vibrate([200,100,200,100,200]);}
 
 // ===== FINAL =====

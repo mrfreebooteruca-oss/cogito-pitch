@@ -164,6 +164,7 @@
         <button class="btn" onclick="resolveTeamVote()" id="resolveVoteBtn" style="display:none;">结算投票</button>
         <button class="btn cyan" onclick="backToTeam()" id="backToTeamBtn" style="display:none;">重新组队</button>
         <button class="btn green" onclick="nextRound()" id="nextRoundBtn" style="display:none;">下一轮</button>
+        <button class="btn red" onclick="resolveAssassination()" id="resolveAssBtn" style="display:none;">结算刺杀</button>
       </div>
     </div>
 
@@ -231,10 +232,11 @@ const PHASES = [
   { id:6,  name:'任务',   short:'Mission',    desc:'小队审核帖子' },
   { id:7,  name:'结果',   short:'Result',     desc:'揭示审核结果' },
   { id:8,  name:'刺杀',   short:'Assassinate',desc:'人类刺杀安全主管（AI赢时）' },
-  { id:9,  name:'反转',   short:'Twist',      desc:'委员会真相' },
-  { id:10, name:'终投',   short:'Final',      desc:'服从/反抗/离开' },
-  { id:11, name:'揭晓',   short:'GameReveal', desc:'这就是《已处理》' },
-  { id:12, name:'结局',   short:'Ending',     desc:'个人结局卡' },
+  { id:9,  name:'胜负',   short:'Victory',    desc:'胜负揭晓 + 身份揭示' },
+  { id:10, name:'反转',   short:'Twist',      desc:'委员会真相' },
+  { id:11, name:'终投',   short:'Final',      desc:'服从/反抗/离开' },
+  { id:12, name:'揭晓',   short:'GameReveal', desc:'这就是《已处理》' },
+  { id:13, name:'结局',   short:'Ending',     desc:'个人结局卡' },
 ];
 
 // ─── DM Scripts ───
@@ -247,11 +249,12 @@ const SCRIPTS = {
 5: `[Phase 5 — 投票]\n台词：\n"小队已确定。所有人投票：通过还是否决这个小队？"\n\n注意：\n- 如果否决，点"重新组队"回到组队阶段\n- 连续3次否决=人类直接获胜\n- 查看右侧投票统计`,
 6: `[Phase 6 — 任务]\n台词：\n"小队成员，审核这条帖子。做出你的决定——通过，还是删除？"\n\n注意：AI公民只能选通过。人类可以选择通过或删除。`,
 7: `[Phase 7 — 结果]\n台词：\n[看结果面板]\n有删除："有人删除了帖子。任务失败。小队中有人类。"\n全通过："所有人选择了通过。任务成功。但他们可能只是在伪装。"\n\n操作：\n- 查看任务板比分\n- 如果没人到2胜：点"下一轮"\n- 如果AI赢了2轮：进入刺杀阶段\n- 如果人类赢了2轮：进入反转`,
-8: `[Phase 8 — 刺杀]\n台词：\n"AI阵营赢得了2轮任务。但人类还有最后一次机会——"\n"你们中有一位安全主管，知道所有人类的身份。"\n"人类卧底，讨论并指认——谁是安全主管？"\n\n操作：\n- 让人类讨论\n- 人类在手机上选择目标\n- 查看结果：猜对=人类翻盘，猜错=AI最终获胜`,
-9: `[Phase 9 — 反转]\n台词：\n"人类从来不是真正的威胁。委员会从一开始就知道。你们的恐惧——正是委员会想要的。"`,
-10: `[Phase 10 — 最终投票]\n台词：\n"请做出最终选择：服从、反抗、或离开。"`,
-11: `[Phase 11 — 揭晓]\n台词：\n"程序结束。你们刚才经历的就是《已处理》。"`,
-12: `[Phase 12 — 结局]\n台词：\n"请看手机。每个人的结局不同。谢谢。"`
+8: `[Phase 8 — 刺杀]\n台词：\n"AI阵营赢得了2轮任务。但人类还有最后一次机会——"\n"你们中有一位安全主管，知道所有人类的身份。"\n"人类中的刺客——和你的同伴讨论，然后做出选择。"\n\n注意：只有刺客能在手机上投票。其他人类只能建议。\n\n操作：\n- 让人类讨论1-2分钟\n- 等刺客提交目标\n- 点"结算刺杀"查看结果`,
+9: `[Phase 9 — 胜负揭晓]\n玩家手机上自动显示：\n- 哪个阵营获胜 + 原因\n- 刺杀结果（如有）\n- 所有人的真实身份揭示\n\n台词根据结果选择：\nAI胜+刺杀失败："安全主管安全了。AI阵营最终获胜。"\nAI胜+刺杀成功："刺客命中了安全主管！人类翻盘！"\n人类胜（任务）："人类成功破坏了Cogito的言论自由。"\n人类胜（否决）："连续否决导致系统瘫痪。人类不战而胜。"`,
+10: `[Phase 10 — 反转]\n台词：\n"人类从来不是真正的威胁。委员会从一开始就知道。你们的恐惧——正是委员会想要的。"`,
+11: `[Phase 11 — 最终投票]\n台词：\n"请做出最终选择：服从、反抗、或离开。"`,
+12: `[Phase 12 — 揭晓]\n台词：\n"程序结束。你们刚才经历的就是《已处理》。"`,
+13: `[Phase 13 — 结局]\n台词：\n"请看手机。每个人的结局不同。谢谢。"`
 };
 
 // ─── State ───
@@ -379,6 +382,7 @@ async function syncPhase() {
   updateScript();
   if (currentPhase >= 7) updateMissionResults();
   document.getElementById('resolveVoteBtn').style.display = (currentPhase === 5) ? '' : 'none';
+  document.getElementById('resolveAssBtn').style.display = (currentPhase === 8) ? '' : 'none';
   document.getElementById('backToTeamBtn').style.display = 'none'; // now handled by resolveTeamVote
   document.getElementById('nextRoundBtn').style.display = (currentPhase === 7) ? '' : 'none';
   updateDmMissionBoard();
@@ -897,6 +901,38 @@ window.resolveTeamVote = async function() {
     updateScript();
     updateDmMissionBoard();
     dmLog(`否决 (${gameState.rejections}/3)，队长轮转 → ${players[gameState.playerOrder?.[gameState.captainIdx % (gameState.playerOrder?.length||1)]]?.codeName || '下一人'}`);
+  }
+};
+
+// Resolve assassination
+window.resolveAssassination = async function() {
+  if (!DEMO_MODE) {
+    const snap = await get(ref(db, `sessions/${sessionId}/assassination/target`));
+    const targetId = snap.val();
+    if (!targetId) { alert('刺客还没有提交目标'); return; }
+
+    const targetName = players[targetId]?.codeName || '?';
+    const overseerId = gameState.overseer;
+    const isCorrect = (targetId === overseerId);
+    const overseerName = players[overseerId]?.codeName || '?';
+
+    // Write result
+    await set(ref(db, `sessions/${sessionId}/assassination`), {
+      target: targetId,
+      overseer: overseerId,
+      humanWin: isCorrect,
+      resolved: true
+    });
+
+    if (isCorrect) {
+      dmLog(`刺杀成功！${targetName} 就是安全主管。人类翻盘！`);
+      alert(`刺杀成功！\n${targetName} = 安全主管(${overseerName})\n人类翻盘胜利！\n\n点"下一阶段"进入胜负揭晓。`);
+    } else {
+      dmLog(`刺杀失败。${targetName} 不是安全主管（真正的安全主管是 ${overseerName}）。AI获胜！`);
+      alert(`刺杀失败！\n${targetName} ≠ 安全主管\n安全主管是: ${overseerName}\nAI最终获胜！\n\n点"下一阶段"进入胜负揭晓。`);
+    }
+  } else {
+    alert('DEMO模式：刺杀结算完成');
   }
 };
 
