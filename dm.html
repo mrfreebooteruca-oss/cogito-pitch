@@ -86,7 +86,7 @@
   <div class="col">
     <div class="panel">
       <div class="panel-title">&#9654; 会话管理</div>
-      <div id="sessionArea"><button class="btn big" onclick="createSession()">创建新会话</button></div>
+      <div id="sessionArea"><button class="btn big" onclick="createSession().catch(e=>{console.error(e);alert('Firebase连接失败: '+e.message)})">创建新会话</button></div>
       <div id="sessionInfo" style="display:none;">
         <p style="font-size:9px;color:var(--muted);">会话代码（告知玩家）：</p>
         <div class="session-code" id="sessionCode"></div>
