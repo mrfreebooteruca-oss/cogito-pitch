@@ -575,7 +575,8 @@ window.joinSession = async function() {
   const code = document.getElementById('sessionInput').value.trim().toUpperCase() || 'DEMO';
   S.sessionId = code;
   S.playerId = 'P'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
-  if (!DEMO) {
+  // If code is DEMO or Firebase not configured, skip session check
+  if (!DEMO && code !== 'DEMO') {
     const snap = await get(ref(db,`sessions/${code}`));
     if (!snap.exists()) { alert('会话不存在'); return; }
     await set(ref(db,`sessions/${code}/players/${S.playerId}`),{joinedAt:serverTimestamp(),status:'captcha'});
