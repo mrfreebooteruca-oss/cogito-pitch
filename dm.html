@@ -186,6 +186,13 @@
       </div>
     </div>
 
+    <div class="panel" style="border-color:#222;">
+      <div class="panel-title">&#9654; 玩家实时状态 <span style="font-size:7px;color:var(--muted);" id="actionPhaseLabel"></span></div>
+      <div id="playerActionStatus" style="font-size:10px;">
+        <p style="color:var(--muted);font-size:9px;">游戏开始后显示...</p>
+      </div>
+    </div>
+
     <div class="panel">
       <div class="panel-title">&#9654; 日志</div>
       <div id="dmLog"></div>
@@ -386,6 +393,7 @@ async function syncPhase() {
   document.getElementById('backToTeamBtn').style.display = 'none'; // now handled by resolveTeamVote
   document.getElementById('nextRoundBtn').style.display = (currentPhase === 7) ? '' : 'none';
   updateDmMissionBoard();
+  updatePlayerActionStatus();
   dmLog(`Phase ${currentPhase}: ${PHASES[currentPhase]?.name || '?'} — ${PHASES[currentPhase]?.desc || ''}`);
 }
 
@@ -809,6 +817,123 @@ window.assignRoles = async function() {
 };
 
 // ─── Mission Board ───
+// ─── Real-time Player Action Status ───
+function updatePlayerActionStatus() {
+  const el = document.getElementById('playerActionStatus');
+  const label = document.getElementById('actionPhaseLabel');
+  if (!el) return;
+
+  const activePlayers = Object.entries(players).filter(([_,p]) => p.status !== 'eliminated');
+  const total = activePlayers.length;
+
+  if (currentPhase === 5) {
+    // Team vote phase
+    label.textContent = `投票阶段 (Phase ${currentPhase})`;
+    const round = gameState.round || 1;
+    const captainIdx = gameState.captainIdx || 0;
+    const voteKey = 'teamVote_r' + round + '_c' + captainIdx;
+    let voted = 0;
+    let html = '';
+    activePlayers.forEach(([id, p]) => {
+      const v = p.votes?.[voteKey];
+      const status = v ? (v === 'approve' ? '<span style="color:var(--green);">通过</span>' : '<span style="color:var(--red);">否决</span>') : '<span style="color:var(--muted);">未投票</span>';
+      if (v) voted++;
+      const role = p.role === 'human' ? '<span style="color:var(--cyan);font-size:8px;">[人]</span>' : '<span style="color:var(--green);font-size:8px;">[AI]</span>';
+      html += `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dotted #1a1a2e;"><span>${p.codeName} ${role}</span><span>${status}</span></div>`;
+    });
+    el.innerHTML = `<div style="font-size:9px;color:var(--amber);margin-bottom:4px;">已投票: ${voted}/${total}</div>` + html;
+
+  } else if (currentPhase === 6) {
+    // Mission execution phase
+    label.textContent = `任务执行 (Phase ${currentPhase})`;
+    const round = gameState.round || 1;
+    const mKey = 'round' + round;
+    if (!DEMO_MODE) {
+      get(ref(db, `sessions/${sessionId}/missions/${mKey}`)).then(snap => {
+        const mission = snap.val() || {};
+        const team = mission.team || [];
+        const actions = mission.actions || {};
+        let done = 0;
+        let html = '';
+        activePlayers.forEach(([id, p]) => {
+          const isOnTeam = team.includes(id);
+          const role = p.role === 'human' ? '<span style="color:var(--cyan);font-size:8px;">[人]</span>' : '<span style="color:var(--green);font-size:8px;">[AI]</span>';
+          if (isOnTeam) {
+            const action = actions[id];
+            if (action) done++;
+            const status = action
+              ? (action === 'pass' ? '<span style="color:var(--green);">通过</span>' : '<span style="color:var(--red);">删除!</span>')
+              : '<span style="color:var(--amber);">执行中...</span>';
+            html += `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dotted #1a1a2e;"><span>${p.codeName} ${role} <span style="font-size:8px;color:var(--amber);">[队员]</span></span><span>${status}</span></div>`;
+          } else {
+            html += `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dotted #1a1a2e;color:#444;"><span>${p.codeName}</span><span style="font-size:8px;">等待中</span></div>`;
+          }
+        });
+        el.innerHTML = `<div style="font-size:9px;color:var(--amber);margin-bottom:4px;">小队完成: ${done}/${team.length}</div>` + html;
+      });
+    }
+
+  } else if (currentPhase === 8) {
+    // Assassination phase
+    label.textContent = `刺杀阶段 (Phase ${currentPhase})`;
+    if (!DEMO_MODE) {
+      get(ref(db, `sessions/${sessionId}/assassination`)).then(snap => {
+        const data = snap.val() || {};
+        let html = '';
+        activePlayers.forEach(([id, p]) => {
+          const role = p.role === 'human' ? '<span style="color:var(--cyan);font-size:8px;">[人]</span>' : '<span style="color:var(--green);font-size:8px;">[AI]</span>';
+          const isAssassin = p.specialRole === 'assassin';
+          const isOverseer = p.specialRole === 'overseer';
+          let status = '';
+          if (isAssassin) {
+            status = data.target ? `<span style="color:var(--red);">已选: ${players[data.target]?.codeName || '?'}</span>` : '<span style="color:var(--amber);">选择中...</span>';
+          } else if (isOverseer) {
+            status = '<span style="color:var(--cyan);">[安全主管]</span>';
+          }
+          const badge = isAssassin ? ' <span style="color:var(--red);font-size:8px;">[刺客]</span>' : isOverseer ? ' <span style="color:var(--cyan);font-size:8px;">[主管]</span>' : '';
+          html += `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dotted #1a1a2e;"><span>${p.codeName} ${role}${badge}</span><span>${status}</span></div>`;
+        });
+        el.innerHTML = html;
+      });
+    }
+
+  } else if (currentPhase === 4) {
+    // Team selection phase
+    label.textContent = `组队阶段 (Phase ${currentPhase})`;
+    const round = gameState.round || 1;
+    const mKey = 'round' + round;
+    const order = gameState.playerOrder || [];
+    const cIdx = gameState.captainIdx || 0;
+    const captainId = order[cIdx % (order.length || 1)];
+    if (!DEMO_MODE) {
+      get(ref(db, `sessions/${sessionId}/missions/${mKey}/team`)).then(snap => {
+        const team = snap.val();
+        let html = '';
+        activePlayers.forEach(([id, p]) => {
+          const isCaptain = id === captainId;
+          const isSelected = team && team.includes(id);
+          const role = p.role === 'human' ? '<span style="color:var(--cyan);font-size:8px;">[人]</span>' : '<span style="color:var(--green);font-size:8px;">[AI]</span>';
+          const badge = isCaptain ? ' <span class="captain-badge">队长</span>' : '';
+          const status = isSelected ? '<span style="color:var(--green);">已选入</span>' : '';
+          html += `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dotted #1a1a2e;"><span>${p.codeName} ${role}${badge}</span><span>${status}</span></div>`;
+        });
+        const teamStatus = team ? `<span style="color:var(--green);">已提名 ${team.length} 人</span>` : '<span style="color:var(--muted);">等待队长选人</span>';
+        el.innerHTML = `<div style="font-size:9px;color:var(--amber);margin-bottom:4px;">${teamStatus}</div>` + html;
+      });
+    }
+
+  } else {
+    label.textContent = `Phase ${currentPhase}`;
+    let html = '';
+    activePlayers.forEach(([id, p]) => {
+      const role = p.role === 'human' ? '<span style="color:var(--cyan);font-size:8px;">[人]</span>' : '<span style="color:var(--green);font-size:8px;">[AI]</span>';
+      const special = p.specialRole === 'overseer' ? ' <span style="color:var(--cyan);font-size:8px;">[主管]</span>' : p.specialRole === 'assassin' ? ' <span style="color:var(--red);font-size:8px;">[刺客]</span>' : '';
+      html += `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dotted #1a1a2e;"><span>${p.codeName} ${role}${special}</span><span style="color:var(--green);font-size:8px;">在线</span></div>`;
+    });
+    el.innerHTML = html || '<p style="color:var(--muted);font-size:9px;">等待玩家...</p>';
+  }
+}
+
 function updateDmMissionBoard() {
   document.getElementById('dmScoreLabel').textContent = `AI ${gameState.aiWins} : ${gameState.humanWins} 人类`;
 
@@ -1067,6 +1192,13 @@ function startChatMonitor() {
     }
   });
 }
+
+// Auto-refresh player status every 3 seconds during active phases
+setInterval(() => {
+  if (sessionId && [4,5,6,8].includes(currentPhase)) {
+    updatePlayerActionStatus();
+  }
+}, 3000);
 
 // ─── Init ───
 (function restoreDmSession(){
