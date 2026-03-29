@@ -81,33 +81,30 @@
   .boot-fill{height:100%;width:0;background:var(--amber);transition:width 0.3s ease;}
   .boot-status{font-size:9px;color:var(--muted);letter-spacing:1px;min-height:14px;}
   .boot-motto{position:absolute;bottom:30px;font-size:8px;color:#333;letter-spacing:3px;}
-  /* Chat System */
-  .chat-fab{position:fixed;bottom:60px;right:16px;width:44px;height:44px;border-radius:50%;background:var(--panel);border:1px solid var(--amber);color:var(--amber);font-size:18px;cursor:pointer;z-index:2500;display:none;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.5);}
-  .chat-fab.visible{display:flex;}
-  .chat-fab:active{background:var(--amber-glow);}
-  .chat-badge{position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:var(--red);color:#fff;font-size:9px;display:none;align-items:center;justify-content:center;}
-  .chat-badge.show{display:flex;}
-  .chat-overlay{position:fixed;inset:0;background:var(--bg);z-index:2600;display:none;flex-direction:column;}
-  .chat-overlay.open{display:flex;}
-  .chat-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--panel);}
-  .chat-header h2{font-size:13px;letter-spacing:2px;color:var(--amber);}
-  .chat-close{background:none;border:none;color:var(--amber);font-size:20px;cursor:pointer;padding:4px 8px;}
-  .chat-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--panel);overflow-x:auto;}
-  .chat-tab{padding:8px 14px;font-size:10px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;font-family:inherit;background:none;border-top:none;border-left:none;border-right:none;}
-  .chat-tab.active{color:var(--amber);border-bottom-color:var(--amber);}
-  .chat-tab .tab-badge{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--red);margin-left:4px;vertical-align:middle;}
-  .chat-messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:6px;}
+  /* Chat System (inline) */
   .chat-msg{max-width:80%;padding:6px 10px;border-radius:4px;font-size:11px;line-height:1.5;}
   .chat-msg.mine{align-self:flex-end;background:rgba(255,176,0,0.1);border:1px solid rgba(255,176,0,0.2);color:var(--text);}
   .chat-msg.theirs{align-self:flex-start;background:var(--panel);border:1px solid var(--border);color:var(--text);}
   .chat-msg .msg-from{font-size:8px;color:var(--amber-dim);margin-bottom:2px;}
-  .chat-msg .msg-time{font-size:7px;color:var(--muted);margin-top:2px;text-align:right;}
-  .chat-input-area{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--border);background:var(--panel);}
-  .chat-input{flex:1;padding:8px 10px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:12px;outline:none;}
-  .chat-input:focus{border-color:var(--amber);}
-  .chat-send{padding:8px 14px;background:transparent;border:1px solid var(--amber);color:var(--amber);font-family:inherit;font-size:11px;cursor:pointer;}
-  .chat-send:active{background:var(--amber-glow);}
-  .chat-empty{text-align:center;color:var(--muted);font-size:10px;padding:20px;letter-spacing:1px;}
+  .top-bar{position:sticky;top:0;z-index:200;background:var(--panel);border-bottom:1px solid var(--border);padding:6px 12px;display:none;justify-content:space-between;align-items:center;font-size:9px;}
+  .top-bar.active{display:flex;}
+  .top-bar .player-count{color:var(--green);letter-spacing:1px;}
+  .top-bar .top-actions{display:flex;gap:6px;}
+  .top-bar .top-btn{padding:3px 8px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:inherit;font-size:8px;cursor:pointer;}
+  .top-bar .top-btn:hover{border-color:var(--amber);color:var(--amber);}
+  .top-bar .top-btn.exit{border-color:#662222;color:#aa4444;}
+  .inline-chat{border:1px solid var(--border);background:var(--panel);margin:10px 0;display:none;}
+  .inline-chat.active{display:block;}
+  .inline-chat .ic-header{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border);font-size:9px;color:var(--amber-dim);}
+  .inline-chat .ic-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);background:var(--bg);}
+  .inline-chat .ic-tab{padding:5px 10px;font-size:9px;color:var(--muted);cursor:pointer;border:none;border-bottom:2px solid transparent;background:none;font-family:inherit;white-space:nowrap;}
+  .inline-chat .ic-tab.active{color:var(--amber);border-bottom-color:var(--amber);}
+  .inline-chat .ic-tab .unread-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--red);margin-left:3px;vertical-align:middle;}
+  .inline-chat .ic-msgs{max-height:150px;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:4px;min-height:40px;}
+  .inline-chat .ic-input{display:flex;gap:6px;padding:6px 8px;border-top:1px solid var(--border);}
+  .inline-chat .ic-input input{flex:1;padding:6px 8px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:10px;}
+  .inline-chat .ic-input input:focus{border-color:var(--amber);outline:none;}
+  .inline-chat .ic-input button{padding:6px 10px;background:transparent;border:1px solid var(--amber);color:var(--amber);font-family:inherit;font-size:9px;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -122,6 +119,15 @@
 </div>
 
 <div class="container">
+
+  <!-- Top bar: player count + actions -->
+  <div class="top-bar" id="topBar">
+    <div><span class="live-dot"></span><span class="player-count" id="onlineCount">0 人在线</span></div>
+    <div class="top-actions">
+      <button class="top-btn" onclick="newPlayerSession()">新会话</button>
+      <button class="top-btn exit" onclick="exitSession()">退出</button>
+    </div>
+  </div>
 
   <!-- Mission Board (sticky, shown during game phases) -->
   <div class="mission-board" id="missionBoard">
@@ -237,7 +243,7 @@
     </div>
 
     <!-- Chat hint for humans -->
-    <div id="nightChatHint" style="display:none;text-align:center;padding:8px;margin-top:8px;border:1px dashed var(--red);font-size:9px;color:var(--red);letter-spacing:1px;cursor:pointer;" onclick="toggleChat()">
+    <div id="nightChatHint" style="display:none;text-align:center;padding:8px;margin-top:8px;border:1px dashed var(--red);font-size:9px;color:var(--red);letter-spacing:1px;cursor:pointer;" onclick="document.getElementById('inlineChat').scrollIntoView({behavior:'smooth'})">
       点击右下角 ✉ 与同伴私聊策略
     </div>
 
@@ -438,27 +444,20 @@
     <div class="footer">《已处理》— COMING SOON</div>
   </div>
 
-</div>
+  <!-- Inline Chat -->
+  <div class="inline-chat" id="inlineChat">
+    <div class="ic-header">
+      <span>私 聊</span>
+      <span id="icStatus" style="color:var(--muted);font-size:8px;"></span>
+    </div>
+    <div class="ic-tabs" id="icTabs"></div>
+    <div class="ic-msgs" id="icMsgs"><div style="text-align:center;color:var(--muted);font-size:9px;padding:10px;">选择联系人</div></div>
+    <div class="ic-input">
+      <input id="icInput" placeholder="输入消息..." maxlength="200" onkeydown="if(event.key==='Enter')sendInlineChat()">
+      <button onclick="sendInlineChat()">发送</button>
+    </div>
+  </div>
 
-<!-- Chat System -->
-<button class="chat-fab" id="chatFab" onclick="toggleChat()">
-  <span style="font-size:16px;">&#9993;</span>
-  <div class="chat-badge" id="chatBadge">0</div>
-</button>
-
-<div class="chat-overlay" id="chatOverlay">
-  <div class="chat-header">
-    <h2 id="chatTitle">通 讯</h2>
-    <button class="chat-close" onclick="toggleChat()">&#10005;</button>
-  </div>
-  <div class="chat-tabs" id="chatTabs"></div>
-  <div class="chat-messages" id="chatMessages">
-    <div class="chat-empty">选择一个联系人开始通讯</div>
-  </div>
-  <div class="chat-input-area">
-    <input class="chat-input" id="chatInput" placeholder="输入消息..." maxlength="200" onkeydown="if(event.key==='Enter')sendChat()">
-    <button class="chat-send" onclick="sendChat()">发送</button>
-  </div>
 </div>
 
 <!-- DEMO phase controller -->
@@ -708,8 +707,10 @@ function showIdentity(){
     updateSecretBriefing();
   }
   updateSecretBriefing();
-  showChatFab();
-  listenAllChats();
+  // Show top bar and inline chat
+  document.getElementById('topBar').classList.add('active');
+  showInlineChat();
+  listenIcChats();
   listenPhase();
 }
 
@@ -760,6 +761,8 @@ function listenPhase(){
       if(fid===S.playerId)return;
       S.allPlayers[fid]={codeName:n,empId:'CG-'+String(1000+i*111),role:i===1?'human':'ai',status:'active'};
     });
+    const demoCount = Object.keys(S.allPlayers).length;
+    document.getElementById('onlineCount').textContent = demoCount + ' 人在线';
     window.addEventListener('hashchange',()=>handleP(parseInt(location.hash.replace('#',''))||0));
     const h=parseInt(location.hash.replace('#',''))||0;
     if(h>0)handleP(h);
@@ -768,6 +771,11 @@ function listenPhase(){
   onValue(ref(db,`sessions/${S.sessionId}/phase`),snap=>{const p=snap.val();if(p!==null&&p!==S.phase)handleP(p);});
   onValue(ref(db,`sessions/${S.sessionId}/players`),snap=>{
     S.allPlayers=snap.val()||{};
+    // Update online count
+    const onlineCount = Object.values(S.allPlayers).filter(p => p.status !== 'eliminated').length;
+    document.getElementById('onlineCount').textContent = onlineCount + ' 人在线';
+    // Rebuild chat tabs when players change
+    if (document.getElementById('inlineChat').classList.contains('active')) buildIcTabs();
     // Check if this player was eliminated
     const me=S.allPlayers[S.playerId];
     if(me&&me.status==='eliminated'){show('s-eliminated',true);if(navigator.vibrate)navigator.vibrate([300,100,300]);}
@@ -1183,66 +1191,51 @@ function showEnding(){
   document.getElementById('endQuote').innerHTML=ending.q.replace(/\n/g,'<br>');
 }
 
-// ===== CHAT SYSTEM =====
-let chatState = { currentTab: null, unread: {}, messages: {} };
+// ===== INLINE CHAT SYSTEM =====
+let icState = { currentTab: null, unread: {}, messages: {} };
 
-window.toggleChat = function() {
-  const overlay = document.getElementById('chatOverlay');
-  const isOpen = overlay.classList.contains('open');
-  if (isOpen) {
-    overlay.classList.remove('open');
-  } else {
-    overlay.classList.add('open');
-    buildChatTabs();
-    if (chatState.currentTab) loadMessages(chatState.currentTab);
-  }
-};
-
-function showChatFab() {
-  document.getElementById('chatFab').classList.add('visible');
+function showInlineChat() {
+  document.getElementById('inlineChat').classList.add('active');
+  buildIcTabs();
 }
 
-function buildChatTabs() {
-  const tabs = document.getElementById('chatTabs');
+function buildIcTabs() {
+  const tabs = document.getElementById('icTabs');
   tabs.innerHTML = '';
   Object.entries(S.allPlayers).forEach(([id, p]) => {
     if (id === S.playerId || p.status === 'eliminated') return;
     const tab = document.createElement('button');
-    tab.className = 'chat-tab' + (chatState.currentTab === id ? ' active' : '');
-    const hasUnread = chatState.unread[id] > 0;
-    tab.innerHTML = `${p.codeName}${hasUnread ? '<span class="tab-badge"></span>' : ''}`;
+    tab.className = 'ic-tab' + (icState.currentTab === id ? ' active' : '');
+    const hasUnread = icState.unread[id] > 0;
+    tab.innerHTML = `${p.codeName}${hasUnread ? '<span class="unread-dot"></span>' : ''}`;
     tab.onclick = () => {
-      chatState.currentTab = id;
-      chatState.unread[id] = 0;
-      updateChatBadge();
-      buildChatTabs();
-      loadMessages(id);
+      icState.currentTab = id;
+      icState.unread[id] = 0;
+      buildIcTabs();
+      loadIcMessages(id);
     };
     tabs.appendChild(tab);
   });
 }
 
-function loadMessages(targetId) {
-  const el = document.getElementById('chatMessages');
-  const chatKey = getChatKey(S.playerId, targetId);
-  const targetName = S.allPlayers[targetId]?.codeName || '?';
-  document.getElementById('chatTitle').textContent = `与 ${targetName} 通讯`;
+function loadIcMessages(targetId) {
+  const chatKey = getIcChatKey(S.playerId, targetId);
+  document.getElementById('icStatus').textContent = S.allPlayers[targetId]?.codeName || '';
 
   if (!DEMO) {
     onValue(ref(db, `sessions/${S.sessionId}/chat/${chatKey}`), snap => {
-      const msgs = snap.val() || {};
-      renderMessages(msgs, targetId);
+      renderIcMessages(snap.val() || {});
     });
   } else {
-    renderMessages(chatState.messages[chatKey] || {}, targetId);
+    renderIcMessages(icState.messages[chatKey] || {});
   }
 }
 
-function renderMessages(msgs, targetId) {
-  const el = document.getElementById('chatMessages');
+function renderIcMessages(msgs) {
+  const el = document.getElementById('icMsgs');
   const sorted = Object.values(msgs).sort((a, b) => (a.ts || 0) - (b.ts || 0));
   if (!sorted.length) {
-    el.innerHTML = '<div class="chat-empty">发送第一条消息</div>';
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:9px;padding:10px;">发送第一条消息</div>';
     return;
   }
   el.innerHTML = '';
@@ -1251,48 +1244,34 @@ function renderMessages(msgs, targetId) {
     const isMine = m.from === S.playerId;
     d.className = 'chat-msg ' + (isMine ? 'mine' : 'theirs');
     const fromName = isMine ? '你' : (S.allPlayers[m.from]?.codeName || '?');
-    const time = m.ts ? new Date(m.ts).toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'}) : '';
-    d.innerHTML = `<div class="msg-from">${fromName}</div>${m.text}<div class="msg-time">${time}</div>`;
+    d.innerHTML = `<span class="msg-from">${fromName}</span> ${m.text}`;
     el.appendChild(d);
   });
   el.scrollTop = el.scrollHeight;
 }
 
-function getChatKey(id1, id2) {
+function getIcChatKey(id1, id2) {
   return [id1, id2].sort().join('_');
 }
 
-window.sendChat = async function() {
-  const input = document.getElementById('chatInput');
+window.sendInlineChat = async function() {
+  const input = document.getElementById('icInput');
   const text = input.value.trim();
-  if (!text || !chatState.currentTab) return;
+  if (!text || !icState.currentTab) return;
   input.value = '';
-
-  const chatKey = getChatKey(S.playerId, chatState.currentTab);
+  const chatKey = getIcChatKey(S.playerId, icState.currentTab);
   const msgId = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-  const msg = { from: S.playerId, to: chatState.currentTab, text: text, ts: Date.now() };
-
+  const msg = { from: S.playerId, to: icState.currentTab, text, ts: Date.now() };
   if (!DEMO) {
     await set(ref(db, `sessions/${S.sessionId}/chat/${chatKey}/${msgId}`), msg);
   } else {
-    if (!chatState.messages[chatKey]) chatState.messages[chatKey] = {};
-    chatState.messages[chatKey][msgId] = msg;
-    renderMessages(chatState.messages[chatKey], chatState.currentTab);
+    if (!icState.messages[chatKey]) icState.messages[chatKey] = {};
+    icState.messages[chatKey][msgId] = msg;
+    renderIcMessages(icState.messages[chatKey]);
   }
 };
 
-function updateChatBadge() {
-  const total = Object.values(chatState.unread).reduce((s, n) => s + n, 0);
-  const badge = document.getElementById('chatBadge');
-  if (total > 0) {
-    badge.textContent = total > 9 ? '9+' : total;
-    badge.classList.add('show');
-  } else {
-    badge.classList.remove('show');
-  }
-}
-
-function listenAllChats() {
+function listenIcChats() {
   if (DEMO) return;
   onValue(ref(db, `sessions/${S.sessionId}/chat`), snap => {
     const allChats = snap.val() || {};
@@ -1301,15 +1280,27 @@ function listenAllChats() {
       const otherPlayer = chatKey.split('_').find(id => id !== S.playerId);
       if (!otherPlayer) return;
       const msgCount = Object.keys(msgs).length;
-      const prevCount = chatState.messages[chatKey] ? Object.keys(chatState.messages[chatKey]).length : 0;
-      if (msgCount > prevCount && chatState.currentTab !== otherPlayer) {
-        chatState.unread[otherPlayer] = (chatState.unread[otherPlayer] || 0) + (msgCount - prevCount);
-        updateChatBadge();
+      const prevCount = icState.messages[chatKey] ? Object.keys(icState.messages[chatKey]).length : 0;
+      if (msgCount > prevCount && icState.currentTab !== otherPlayer) {
+        icState.unread[otherPlayer] = (icState.unread[otherPlayer] || 0) + (msgCount - prevCount);
+        buildIcTabs();
       }
-      chatState.messages[chatKey] = msgs;
+      icState.messages[chatKey] = msgs;
     });
   });
 }
+
+window.exitSession = function() {
+  if (!confirm('确定退出当前会话？')) return;
+  localStorage.removeItem('cogito_session');
+  location.reload();
+};
+
+window.newPlayerSession = function() {
+  if (!confirm('退出当前会话并加入新的？')) return;
+  localStorage.removeItem('cogito_session');
+  location.reload();
+};
 
 // ===== DEMO PHASE CONTROLLER =====
 let demoP=0;
