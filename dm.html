@@ -169,8 +169,12 @@
 
     <div class="panel">
       <div class="panel-title">
-        <span>&#9654; 任务控制</span>
-        <button class="btn" style="font-size:8px;padding:2px 8px;" onclick="overrideCaptain()">指定队长</button>
+        <span>&#9654; 队长 &amp; 任务控制</span>
+        <button class="btn" style="font-size:8px;padding:2px 8px;" onclick="rotateCaptainNext()">下一个队长 &rarr;</button>
+      </div>
+      <div style="margin-bottom:8px;">
+        <p style="font-size:9px;color:var(--muted);margin-bottom:4px;">指定队长（点击选人）：</p>
+        <div id="captainPickList" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
       </div>
       <div id="teamSelectArea">
         <p style="font-size:9px;color:var(--muted);margin-bottom:6px;">当前队长: <span id="dmCaptainName" style="color:var(--amber);">——</span> (第 <span id="dmCaptainRound">1</span> 轮)</p>
@@ -543,19 +547,47 @@ window.confirmTeam = async function() {
   alert('队长在手机上选人。如需DM强制指定，使用"指定队长"按钮。');
 };
 
-window.overrideCaptain = async function() {
-  const names = Object.entries(players)
-    .filter(([_,p]) => p.status !== 'eliminated')
-    .map(([id,p]) => `${p.codeName} (${id.slice(0,6)})`);
-  const choice = prompt('输入要指定为队长的代号:\n' + names.map((n,i) => `${i}: ${n}`).join('\n'));
-  if (choice === null) return;
-  const idx = parseInt(choice);
-  if (isNaN(idx)) return;
+// Pick captain by clicking a player button
+window.pickCaptain = async function(idx) {
   gameState.captainIdx = idx;
   if (!DEMO_MODE) await update(ref(db, `sessions/${sessionId}/gameState`), { captainIdx: idx });
   updateDmMissionBoard();
-  dmLog(`队长手动指定为: ${names[idx]}`);
+  updateCaptainPickList();
+  const order = gameState.playerOrder || [];
+  const name = players[order[idx % (order.length||1)]]?.codeName || '?';
+  dmLog(`队长指定为: ${name}`);
 };
+
+// Rotate to next captain in order
+window.rotateCaptainNext = async function() {
+  gameState.captainIdx = (gameState.captainIdx || 0) + 1;
+  if (!DEMO_MODE) await update(ref(db, `sessions/${sessionId}/gameState`), { captainIdx: gameState.captainIdx });
+  updateDmMissionBoard();
+  updateCaptainPickList();
+  const order = gameState.playerOrder || [];
+  const name = players[order[gameState.captainIdx % (order.length||1)]]?.codeName || '?';
+  dmLog(`队长流转到: ${name}`);
+};
+
+// Build clickable captain pick list
+function updateCaptainPickList() {
+  const el = document.getElementById('captainPickList');
+  if (!el) return;
+  const order = gameState.playerOrder || Object.keys(players).filter(id=>players[id]?.status!=='eliminated');
+  const currentIdx = gameState.captainIdx || 0;
+  el.innerHTML = '';
+  order.forEach((pid, i) => {
+    const p = players[pid];
+    if (!p || p.status === 'eliminated') return;
+    const isCurrent = (i === currentIdx % order.length);
+    const btn = document.createElement('button');
+    btn.className = 'btn' + (isCurrent ? ' green' : '');
+    btn.style.cssText = 'font-size:9px;padding:4px 10px;';
+    btn.textContent = p.codeName + (isCurrent ? ' (队长)' : '');
+    btn.onclick = () => pickCaptain(i);
+    el.appendChild(btn);
+  });
+}
 
 // ─── Update Mission Results ───
 function updateMissionResults() {
@@ -809,6 +841,9 @@ function updateDmMissionBoard() {
     const el = document.getElementById('dmTS' + (i+1));
     if (el) el.textContent = ts[i];
   }
+
+  // Update captain pick buttons
+  updateCaptainPickList();
 }
 
 window.resolveTeamVote = async function() {
@@ -842,9 +877,8 @@ window.resolveTeamVote = async function() {
     // Team approved → advance to mission
     alert(`小队通过 (${approve}/${total})！点"下一阶段"进入任务。`);
   } else {
-    // Team rejected → rotate captain, go back to team
+    // Team rejected → DM manually rotates captain via "下一个队长" button
     gameState.rejections++;
-    gameState.captainIdx = (gameState.captainIdx || 0) + 1;
 
     if (gameState.rejections >= 3) {
       alert('连续3次否决！人类直接获胜！');
@@ -869,8 +903,6 @@ window.resolveTeamVote = async function() {
 // Back to team selection (after rejection)
 window.backToTeam = async function() {
   gameState.rejections++;
-  // Rotate captain on rejection
-  gameState.captainIdx = (gameState.captainIdx || 0) + 1;
   if (gameState.rejections >= 3) {
     alert('连续3次否决！人类直接获胜！');
     gameState.humanWins = 2;
@@ -939,9 +971,7 @@ window.nextRound = async function() {
     return;
   }
 
-  // Next round
-  // Rotate captain for next round
-  gameState.captainIdx = (gameState.captainIdx || 0) + 1;
+  // Next round (captain does NOT auto-rotate — DM controls manually)
   gameState.round++;
   gameState.rejections = 0;
   if (!DEMO_MODE) await update(ref(db, `sessions/${sessionId}/gameState`), gameState);

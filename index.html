@@ -138,7 +138,7 @@
 
   <!-- Top bar: player count + actions -->
   <div class="top-bar" id="topBar">
-    <div><span class="live-dot"></span><span class="player-count" id="onlineCount">0 人在线</span></div>
+    <div><span class="live-dot"></span><span class="player-count" id="onlineCount">0 人在线</span><span id="captainDisplay" style="margin-left:8px;color:var(--amber);font-size:8px;"></span></div>
     <div class="top-actions">
       <button class="top-btn" onclick="renameSelf()">改名</button>
       <button class="top-btn" onclick="newPlayerSession()">新会话</button>
@@ -699,6 +699,7 @@ async function finishC(){
   }
   const available=NAMES.filter(n=>!usedNames.includes(n));
   const customName = document.getElementById('playerNameInput')?.value.trim();
+  S._customName = !!customName; // lock rename if custom
   S.codeName = customName || (available.length>0 ? available[Math.floor(Math.random()*available.length)] : NAMES[Math.floor(Math.random()*NAMES.length)]+'-'+Math.floor(Math.random()*9));
   S.empId = 'CG-'+String(Math.floor(Math.random()*9000)+1000);
   show('s-analysis');
@@ -824,6 +825,13 @@ function listenPhase(){
     // Update online count
     const onlineCount = Object.values(S.allPlayers).filter(p => p.status !== 'eliminated').length;
     document.getElementById('onlineCount').textContent = onlineCount + ' 人在线';
+    // Show current captain
+    const order = S.gameState.playerOrder || [];
+    const cIdx = S.gameState.captainIdx || 0;
+    const captainId = order[cIdx % (order.length || 1)];
+    const captainName = S.allPlayers[captainId]?.codeName;
+    const capEl = document.getElementById('captainDisplay');
+    if (capEl) capEl.textContent = captainName ? ('队长: ' + captainName) : '';
     // Rebuild chat tabs when players change
     if (document.getElementById('inlineChat').classList.contains('active')) buildIcTabs();
     // Check if this player was eliminated
@@ -1458,16 +1466,18 @@ function listenIcChats() {
 }
 
 window.renameSelf = async function() {
+  if (S._customName) {
+    alert('你在加入时选择了自定义代号，进入游戏后不可更改。');
+    return;
+  }
   const newName = prompt('输入新代号（最多12字）:', S.codeName);
   if (!newName || !newName.trim() || newName.trim() === S.codeName) return;
   S.codeName = newName.trim().slice(0, 12);
   if (!DEMO) await update(ref(db, `sessions/${S.sessionId}/players/${S.playerId}`), { codeName: S.codeName });
-  // Update displayed name
   const el = document.getElementById('idCodeName');
   if (el) el.textContent = S.codeName;
   const el2 = document.getElementById('idCodeName2');
   if (el2) el2.textContent = S.codeName;
-  // Update localStorage
   const stored = localStorage.getItem('cogito_session');
   if (stored) { const d = JSON.parse(stored); d.codeName = S.codeName; localStorage.setItem('cogito_session', JSON.stringify(d)); }
 };
