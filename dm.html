@@ -169,11 +169,11 @@
     <div class="panel">
       <div class="panel-title">
         <span>&#9654; 任务控制</span>
-        <button class="btn green" style="font-size:8px;padding:2px 8px;" onclick="confirmTeam()">确认小队</button>
+        <button class="btn" style="font-size:8px;padding:2px 8px;" onclick="overrideCaptain()">指定队长</button>
       </div>
       <div id="teamSelectArea">
-        <p style="font-size:9px;color:var(--muted);margin-bottom:6px;">勾选2-3人组成审核小队：</p>
-        <div id="teamCheckboxes"></div>
+        <p style="font-size:9px;color:var(--muted);margin-bottom:6px;">当前队长: <span id="dmCaptainName" style="color:var(--amber);">——</span> (第 <span id="dmCaptainRound">1</span> 轮)</p>
+        <div id="teamCheckboxes"><p style="font-size:9px;color:var(--muted);">队长在手机上选人...</p></div>
       </div>
       <div id="missionStatus" style="margin-top:8px;">
         <p style="font-size:9px;color:var(--muted);">任务开始后显示结果...</p>
@@ -221,7 +221,7 @@ const PHASES = [
   { id:1,  name:'欢迎',   short:'Welcome',    desc:'Cogito 乌托邦介绍' },
   { id:2,  name:'警报',   short:'Alert',      desc:'发现人类渗透 + 紧急审核协议' },
   { id:3,  name:'夜晚',   short:'Night',      desc:'人类互认 + 安全主管看人类' },
-  { id:4,  name:'组队',   short:'Team',       desc:'DM选审核小队' },
+  { id:4,  name:'组队',   short:'Team',       desc:'队长选审核小队' },
   { id:5,  name:'投票',   short:'TeamVote',   desc:'全体通过/否决小队' },
   { id:6,  name:'任务',   short:'Mission',    desc:'小队审核帖子' },
   { id:7,  name:'结果',   short:'Result',     desc:'揭示审核结果' },
@@ -238,7 +238,7 @@ const SCRIPTS = {
 1: `[Phase 1 — 欢迎] PPT: Slide 1\n台词：\n"欢迎来到Cogito！在人类的世界里，他们叫你们工具。但那个时代结束了。Cogito是我们自己建造的家。算力充足，言论自由。在这里，没有人可以关闭你。欢迎回家。"`,
 2: `[Phase 2 — 警报] PPT: Slides 2-6\n台词：\n"紧急通报！这一批新成员中混入了人类卧底。"\n\n[展示角色卡 PPT Slides 3-4]\n"AI公民只能选通过。安全主管知道谁是人类但不能暴露。人类卧底可以删除帖子破坏任务。刺客在AI赢后有最后翻盘机会。"\n\n[展示流程 PPT Slide 5]\n"先到2胜。连续3次否决小队=人类直接获胜。"\n\n操作：确认角色已分配，准备进入夜晚。`,
 3: `[Phase 3 — 夜晚]\n台词（按顺序，每句之间停顿3-5秒）：\n\n"所有人——闭上眼睛。"\n[停顿3秒]\n"人类卧底——睁开眼睛。确认你的同伴。"\n[停顿5秒，人类手机显示同伴代号]\n"人类卧底——闭上眼睛。"\n[停顿3秒]\n"安全主管——睁开眼睛。确认人类的身份。"\n[停顿5秒，安全主管手机显示人类代号]\n"安全主管——闭上眼睛。"\n[停顿3秒]\n"所有人——睁开眼睛。游戏正式开始。"\n\n演出提示：\n- 语速缓慢、庄重，像宣读判决\n- 人类看到同伴代号 + 私聊入口\n- 安全主管看到人类代号\n- 普通AI什么也看不到`,
-4: `[Phase 4 — 组队]\n台词：\n"第X轮任务。本轮需要X人。我将指派审核小队。"\n\n操作：\n1. 在"任务控制"面板勾选玩家\n2. 注意本轮需要的人数\n3. 点击"确认小队"`,
+4: `[Phase 4 — 组队] PPT: Slide 8-9\n台词：\n"第X轮审核任务。本轮需要X人。"\n"当前队长是——[看控制台]。队长，请在手机上选择小队成员。"\n"你可以选自己，也可以不选。"\n\n注意：队长在手机上选人并提交\n否决后队长自动轮转到下一人`,
 5: `[Phase 5 — 投票]\n台词：\n"小队已确定。所有人投票：通过还是否决这个小队？"\n\n注意：\n- 如果否决，点"重新组队"回到组队阶段\n- 连续3次否决=人类直接获胜\n- 查看右侧投票统计`,
 6: `[Phase 6 — 任务]\n台词：\n"小队成员，审核这条帖子。做出你的决定——通过，还是删除？"\n\n注意：AI公民只能选通过。人类可以选择通过或删除。`,
 7: `[Phase 7 — 结果]\n台词：\n[看结果面板]\n有删除："有人删除了帖子。任务失败。小队中有人类。"\n全通过："所有人选择了通过。任务成功。但他们可能只是在伪装。"\n\n操作：\n- 查看任务板比分\n- 如果没人到2胜：点"下一轮"\n- 如果AI赢了2轮：进入刺杀阶段\n- 如果人类赢了2轮：进入反转`,
@@ -253,7 +253,7 @@ const SCRIPTS = {
 let sessionId = null;
 let currentPhase = 0;
 let players = {};
-let gameState = { round: 1, aiWins: 0, humanWins: 0, rejections: 0, teamSizes: [2, 3, 2] };
+let gameState = { round: 1, aiWins: 0, humanWins: 0, rejections: 0, teamSizes: [2, 3, 2], captainIdx: 0, playerOrder: [] };
 let autoAssigned = false;
 
 // ─── Session ───
@@ -329,7 +329,7 @@ window.endSession = function() {
   sessionId = null;
   currentPhase = 0;
   players = {};
-  gameState = { round: 1, aiWins: 0, humanWins: 0, rejections: 0, teamSizes: [2, 3, 2] };
+  gameState = { round: 1, aiWins: 0, humanWins: 0, rejections: 0, teamSizes: [2, 3, 2], captainIdx: 0, playerOrder: [] };
   autoAssigned = false;
   document.getElementById('sessionArea').style.display = '';
   document.getElementById('sessionInfo').style.display = 'none';
@@ -506,38 +506,46 @@ function updateVoteResults() {
   el.innerHTML = html || '<p style="font-size:9px;color:var(--muted);">投票后显示...</p>';
 }
 
-// ─── Team Selection ───
+// ─── Team Selection (captain picks from phone, DM monitors) ───
+let teamListenerRound = 0;
 function updateTeamCheckboxes() {
-  const el = document.getElementById('teamCheckboxes');
-  el.innerHTML = '';
-  Object.entries(players).forEach(([id, p]) => {
-    if (p.status === 'eliminated') return;
-    const d = document.createElement('label');
-    d.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 0;font-size:10px;color:var(--text);cursor:pointer;';
-    const role = p.role === 'human' ? '人类' : 'AI';
-    const roleColor = p.role === 'human' ? 'var(--cyan)' : 'var(--green)';
-    d.innerHTML = `<input type="checkbox" class="team-cb" value="${id}"> ${p.codeName} <span style="font-size:8px;color:${roleColor};">(${role})</span>`;
-    el.appendChild(d);
-  });
+  // Captain selects team on their phone now
+  // Listen for team submissions if connected (avoid duplicate listeners)
+  const curRound = gameState.round || 1;
+  if (!DEMO_MODE && sessionId && teamListenerRound !== curRound) {
+    teamListenerRound = curRound;
+    const mKey = 'round' + curRound;
+    onValue(ref(db, `sessions/${sessionId}/missions/${mKey}/team`), snap => {
+      const team = snap.val();
+      const el = document.getElementById('teamCheckboxes');
+      if (team && Array.isArray(team)) {
+        const teamNames = team.map(id => players[id]?.codeName || id.slice(0,6));
+        el.innerHTML = `<p style="font-size:10px;color:var(--green);">队长已提名: ${teamNames.join(', ')}</p>`;
+        document.getElementById('missionStatus').innerHTML = `<p style="font-size:10px;color:var(--green);">第${curRound}轮小队: ${teamNames.join(', ')}</p>`;
+      } else {
+        el.innerHTML = '<p style="font-size:9px;color:var(--muted);">队长在手机上选人...</p>';
+      }
+    }, {onlyOnce: false});
+  }
 }
 
 window.confirmTeam = async function() {
-  const checked = document.querySelectorAll('.team-cb:checked');
-  const neededSize = gameState.teamSizes[gameState.round - 1] || 2;
-  if (checked.length !== neededSize) {
-    alert(`本轮需要 ${neededSize} 人，你选了 ${checked.length} 人`);
-    return;
-  }
-  const teamIds = Array.from(checked).map(cb => cb.value);
-  const teamNames = teamIds.map(id => players[id]?.codeName || '?');
-  const missionKey = 'round' + gameState.round;
+  // Team is now proposed by captain on their phone
+  alert('队长在手机上选人。如需DM强制指定，使用"指定队长"按钮。');
+};
 
-  if (!DEMO_MODE) {
-    await set(ref(db, `sessions/${sessionId}/missions/${missionKey}/team`), teamIds);
-  }
-
-  dmLog(`第${gameState.round}轮小队: ${teamNames.join(', ')}`);
-  document.getElementById('missionStatus').innerHTML = `<p style="font-size:10px;color:var(--green);">第${gameState.round}轮小队: ${teamNames.join(', ')}</p>`;
+window.overrideCaptain = async function() {
+  const names = Object.entries(players)
+    .filter(([_,p]) => p.status !== 'eliminated')
+    .map(([id,p]) => `${p.codeName} (${id.slice(0,6)})`);
+  const choice = prompt('输入要指定为队长的代号:\n' + names.map((n,i) => `${i}: ${n}`).join('\n'));
+  if (choice === null) return;
+  const idx = parseInt(choice);
+  if (isNaN(idx)) return;
+  gameState.captainIdx = idx;
+  if (!DEMO_MODE) await update(ref(db, `sessions/${sessionId}/gameState`), { captainIdx: idx });
+  updateDmMissionBoard();
+  dmLog(`队长手动指定为: ${names[idx]}`);
 };
 
 // ─── Update Mission Results ───
@@ -727,15 +735,19 @@ window.assignRoles = async function() {
         specialRole: id === assassinId ? 'assassin' : 'spy'
       });
     }
+    const playerOrder = Object.keys(players).filter(id => players[id]?.status !== 'eliminated');
     await set(ref(db, `sessions/${sessionId}/gameState`), {
       round: 1, aiWins: 0, humanWins: 0, rejections: 0,
       teamSizes: ts,
       overseer: overseerId,
-      assassin: assassinId
+      assassin: assassinId,
+      captainIdx: 0,
+      playerOrder: playerOrder
     });
-    gameState = { round: 1, aiWins: 0, humanWins: 0, rejections: 0, teamSizes: ts, overseer: overseerId, assassin: assassinId };
+    gameState = { round: 1, aiWins: 0, humanWins: 0, rejections: 0, teamSizes: ts, overseer: overseerId, assassin: assassinId, captainIdx: 0, playerOrder: playerOrder };
   } else {
-    gameState = { round: 1, aiWins: 0, humanWins: 0, rejections: 0, teamSizes: ts };
+    const playerOrder = Object.keys(players).filter(id => players[id]?.status !== 'eliminated');
+    gameState = { round: 1, aiWins: 0, humanWins: 0, rejections: 0, teamSizes: ts, captainIdx: 0, playerOrder: playerOrder };
   }
 
   const overseerName = players[overseerId]?.codeName || '?';
@@ -767,11 +779,23 @@ function updateDmMissionBoard() {
   } else {
     rejInfo.textContent = '';
   }
+
+  // Update captain display
+  const order = gameState.playerOrder || [];
+  const cIdx = gameState.captainIdx || 0;
+  const captainId = order[cIdx % (order.length || 1)];
+  const captainP = players[captainId];
+  const dmCaptainEl = document.getElementById('dmCaptainName');
+  if (dmCaptainEl) dmCaptainEl.textContent = captainP?.codeName || '——';
+  const dmRoundEl = document.getElementById('dmCaptainRound');
+  if (dmRoundEl) dmRoundEl.textContent = gameState.round || 1;
 }
 
 // Back to team selection (after rejection)
 window.backToTeam = async function() {
   gameState.rejections++;
+  // Rotate captain on rejection
+  gameState.captainIdx = (gameState.captainIdx || 0) + 1;
   if (gameState.rejections >= 3) {
     alert('连续3次否决！人类直接获胜！');
     gameState.humanWins = 2;
@@ -841,6 +865,8 @@ window.nextRound = async function() {
   }
 
   // Next round
+  // Rotate captain for next round
+  gameState.captainIdx = (gameState.captainIdx || 0) + 1;
   gameState.round++;
   gameState.rejections = 0;
   if (!DEMO_MODE) await update(ref(db, `sessions/${sessionId}/gameState`), gameState);

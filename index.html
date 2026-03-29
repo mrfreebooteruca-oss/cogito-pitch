@@ -105,6 +105,12 @@
   .inline-chat .ic-input input{flex:1;padding:6px 8px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:10px;}
   .inline-chat .ic-input input:focus{border-color:var(--amber);outline:none;}
   .inline-chat .ic-input button{padding:6px 10px;background:transparent;border:1px solid var(--amber);color:var(--amber);font-family:inherit;font-size:9px;cursor:pointer;}
+  .captain-badge{display:inline-block;padding:2px 6px;background:rgba(255,176,0,0.15);border:1px solid var(--amber);color:var(--amber);font-size:8px;letter-spacing:1px;margin-left:4px;}
+  .team-select-item{display:flex;justify-content:space-between;align-items:center;padding:10px;margin:4px 0;border:1px solid var(--border);background:var(--bg);cursor:pointer;transition:all 0.15s;}
+  .team-select-item:hover{border-color:var(--amber);}
+  .team-select-item.checked{border-color:var(--green);background:rgba(57,255,20,0.05);}
+  .team-select-item .check-mark{width:16px;height:16px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;}
+  .team-select-item.checked .check-mark{border-color:var(--green);color:var(--green);}
 </style>
 </head>
 <body>
@@ -274,16 +280,39 @@
   <!-- ===== TEAM PROPOSAL ===== -->
   <div class="screen" id="s-team">
     <div style="font-size:10px;color:var(--amber-dim);margin-bottom:10px;"><span class="live-dot"></span>组队阶段</div>
-    <div class="header" style="border-color:var(--amber);"><h1>审核小队</h1><div class="sub">委 员 会 提 名</div></div>
-    <div class="box">
-      <div class="box-title">-- 本轮审核任务小队</div>
-      <div id="teamMembers"><p style="font-size:11px;color:var(--muted);">等待委员会指派...</p></div>
+    <div class="header" style="border-color:var(--amber);"><h1>审核小队</h1><div class="sub" id="teamSubtitle">队 长 提 名</div></div>
+
+    <!-- Captain info -->
+    <div class="box" id="captainInfoBox">
+      <div class="box-title">-- 当前队长</div>
+      <div style="text-align:center;padding:8px;">
+        <span style="font-size:16px;color:var(--amber);letter-spacing:3px;" id="captainName">——</span>
+        <div style="font-size:9px;color:var(--muted);margin-top:4px;">本轮需要 <span id="teamSizeHint" style="color:var(--amber);">2</span> 人</div>
+      </div>
     </div>
-    <div class="box" id="teamRoleHint">
-      <div class="box-title" style="color:var(--cyan);">-- 你的判断</div>
-      <p style="font-size:10px;color:var(--muted);line-height:1.6;" id="teamHintText"></p>
+
+    <!-- If I am captain: show selection UI -->
+    <div id="captainSelectArea" style="display:none;">
+      <div class="box">
+        <div class="box-title" style="color:var(--green);">-- 你是队长！选择小队成员</div>
+        <div id="captainPlayerList"></div>
+        <button class="btn green" onclick="submitTeamProposal()" style="margin-top:8px;">确认提名 (<span id="selectedCount">0</span>/<span id="neededCount">2</span>)</button>
+      </div>
     </div>
-    <div class="waiting">等待全体投票</div>
+
+    <!-- If I am NOT captain: show waiting -->
+    <div id="captainWaitArea" style="display:none;">
+      <div class="box">
+        <div class="box-title">-- 提名小队成员</div>
+        <div id="teamMembers"><p style="font-size:11px;color:var(--muted);">等待队长提名...</p></div>
+      </div>
+      <div class="box" id="teamRoleHint">
+        <div class="box-title" style="color:var(--cyan);">-- 你的判断</div>
+        <p style="font-size:10px;color:var(--muted);line-height:1.6;" id="teamHintText"></p>
+      </div>
+    </div>
+
+    <div class="waiting" id="teamWaiting">等待全体投票</div>
   </div>
 
   <!-- ===== TEAM VOTE ===== -->
@@ -512,7 +541,7 @@ const DEMO = FIREBASE_CONFIG.apiKey === "YOUR_API_KEY";
 let app, db;
 if (!DEMO) { app = initializeApp(FIREBASE_CONFIG); db = getDatabase(app); }
 
-let S = { sessionId:null, playerId:null, role:null, specialRole:null, codeName:'', empId:'', votes:{}, phase:-1, voteTarget:null, allPlayers:{}, gameState:{round:1,aiWins:0,humanWins:0,rejections:0,teamSizes:[2,3,2]} };
+let S = { sessionId:null, playerId:null, role:null, specialRole:null, codeName:'', empId:'', votes:{}, phase:-1, voteTarget:null, allPlayers:{}, captain:null, gameState:{round:1,aiWins:0,humanWins:0,rejections:0,teamSizes:[2,3,2],captainIdx:0,playerOrder:[]} };
 
 const CAPTCHA_BANK = [
   // 数学计算
@@ -820,28 +849,106 @@ const POSTS = {
 function showTeam(){
   show('s-team');
   const round=S.gameState.round||1;
-  const missionKey='round'+round;
-  const teamSize=S.gameState.teamSizes?.[round-1]||2;
+  const teamSize=(S.gameState.teamSizes||[2,3,2])[round-1]||2;
+  document.getElementById('teamSizeHint').textContent=teamSize;
+  document.getElementById('neededCount').textContent=teamSize;
 
-  document.getElementById('teamMembers').innerHTML=`<p style="font-size:11px;color:var(--muted);">等待委员会指派 ${teamSize} 人...</p>`;
+  // Determine captain
+  const playerOrder=S.gameState.playerOrder||Object.keys(S.allPlayers).filter(id=>S.allPlayers[id]?.status!=='eliminated');
+  const captainIdx=S.gameState.captainIdx||0;
+  const captainId=playerOrder[captainIdx % playerOrder.length];
+  const captainPlayer=S.allPlayers[captainId];
+  const iAmCaptain=(captainId===S.playerId);
 
-  if(!DEMO){
-    onValue(ref(db,`sessions/${S.sessionId}/missions/${missionKey}/team`),snap=>{
-      const team=snap.val();
-      if(team) renderTeamMembers(team);
-    },{onlyOnce:false});
+  document.getElementById('captainName').textContent=captainPlayer?.codeName||'未知';
+  if(iAmCaptain){
+    document.getElementById('captainName').innerHTML=(captainPlayer?.codeName||'你')+ ' <span class="captain-badge">你是队长</span>';
   }
+  document.getElementById('teamSubtitle').textContent=iAmCaptain?'你 来 选 人':'队 长 提 名';
 
-  // Update hints
-  const hint=document.getElementById('teamHintText');
-  if(S.role==='human'){
-    hint.innerHTML='你是人类。如果被选入小队：<br>· 你可以<span style="color:var(--red)">删除</span>帖子来破坏任务<br>· 或<span style="color:var(--green)">通过</span>来伪装';
-  } else if(S.specialRole==='overseer'){
-    hint.innerHTML='<span style="color:var(--cyan);">你是安全主管。</span>你知道谁是人类。<br>· 引导大家否决有人类的小队<br>· 但不要太明显暴露你的身份';
+  if(iAmCaptain){
+    // Show selection UI
+    document.getElementById('captainSelectArea').style.display='block';
+    document.getElementById('captainWaitArea').style.display='none';
+    document.getElementById('teamWaiting').textContent='选好后点击"确认提名"';
+    buildCaptainPlayerList(teamSize);
   } else {
-    hint.innerHTML='观察小队人选：<br>· 你被选中时务必选<span style="color:var(--green)">通过</span><br>· 如果任务失败，说明队里有人类';
+    // Show waiting UI
+    document.getElementById('captainSelectArea').style.display='none';
+    document.getElementById('captainWaitArea').style.display='block';
+    document.getElementById('teamWaiting').textContent='等待队长提名...';
+
+    // Listen for team proposal
+    const missionKey='round'+round;
+    if(!DEMO){
+      onValue(ref(db,`sessions/${S.sessionId}/missions/${missionKey}/team`),snap=>{
+        const team=snap.val();
+        if(team) renderTeamMembers(team);
+      },{onlyOnce:false});
+    }
+
+    // Role hints
+    const hint=document.getElementById('teamHintText');
+    if(S.role==='human'){
+      hint.innerHTML='你是人类。观察队长的选人：<br>· 如果你被选入小队，你可以<span style="color:var(--red)">删除</span>来破坏<br>· 投票时考虑是否否决这个小队';
+    } else if(S.specialRole==='overseer'){
+      hint.innerHTML='<span style="color:var(--cyan);">你是安全主管。</span><br>· 你知道谁是人类<br>· 引导投票否决有人类的小队<br>· 但不要太明显暴露身份';
+    } else {
+      hint.innerHTML='观察队长的选人：<br>· 你被选中时务必选<span style="color:var(--green)">通过</span><br>· 如果任务失败，说明队里有人类';
+    }
   }
 }
+
+let captainSelected = new Set();
+
+function buildCaptainPlayerList(teamSize) {
+  captainSelected.clear();
+  document.getElementById('selectedCount').textContent='0';
+  const el=document.getElementById('captainPlayerList');
+  el.innerHTML='';
+  Object.entries(S.allPlayers).forEach(([id,p])=>{
+    if(p.status==='eliminated') return;
+    const d=document.createElement('div');
+    d.className='team-select-item';
+    const isMe=id===S.playerId;
+    d.innerHTML=`<span style="color:var(--text);font-size:13px;">${p.codeName}${isMe?' (你)':''}</span><div class="check-mark"></div>`;
+    d.onclick=()=>{
+      if(captainSelected.has(id)){
+        captainSelected.delete(id);
+        d.classList.remove('checked');
+        d.querySelector('.check-mark').textContent='';
+      } else {
+        if(captainSelected.size>=teamSize) return; // max reached
+        captainSelected.add(id);
+        d.classList.add('checked');
+        d.querySelector('.check-mark').textContent='\u2713';
+      }
+      document.getElementById('selectedCount').textContent=captainSelected.size;
+    };
+    el.appendChild(d);
+  });
+}
+
+window.submitTeamProposal = async function(){
+  const round=S.gameState.round||1;
+  const teamSize=(S.gameState.teamSizes||[2,3,2])[round-1]||2;
+  if(captainSelected.size!==teamSize){
+    alert(`需要选择 ${teamSize} 人`);
+    return;
+  }
+  const teamIds=Array.from(captainSelected);
+  const missionKey='round'+round;
+
+  if(!DEMO){
+    await set(ref(db,`sessions/${S.sessionId}/missions/${missionKey}/team`),teamIds);
+  }
+
+  // Show confirmation
+  document.getElementById('captainSelectArea').style.display='none';
+  document.getElementById('captainWaitArea').style.display='block';
+  renderTeamMembers(teamIds);
+  document.getElementById('teamWaiting').textContent='小队已提名，等待进入投票';
+};
 
 function renderTeamMembers(teamIds){
   const el=document.getElementById('teamMembers');
