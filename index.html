@@ -106,6 +106,10 @@
   .inline-chat .ic-input input:focus{border-color:var(--amber);outline:none;}
   .inline-chat .ic-input button{padding:6px 10px;background:transparent;border:1px solid var(--amber);color:var(--amber);font-family:inherit;font-size:9px;cursor:pointer;}
   .captain-badge{display:inline-block;padding:2px 6px;background:rgba(255,176,0,0.15);border:1px solid var(--amber);color:var(--amber);font-size:8px;letter-spacing:1px;margin-left:4px;}
+  .spectator-bar{position:fixed;top:0;left:0;right:0;background:#1a0a0a;border-bottom:2px solid #662222;padding:4px 12px;z-index:9999;display:none;justify-content:space-between;align-items:center;font-size:9px;}
+  .spectator-bar.active{display:flex;}
+  .spectator-bar .spec-label{color:#aa4444;letter-spacing:2px;}
+  .spectator-bar .spec-info{color:var(--muted);}
   .team-select-item{display:flex;justify-content:space-between;align-items:center;padding:10px;margin:4px 0;border:1px solid var(--border);background:var(--bg);cursor:pointer;transition:all 0.15s;}
   .team-select-item:hover{border-color:var(--amber);}
   .team-select-item.checked{border-color:var(--green);background:rgba(57,255,20,0.05);}
@@ -114,6 +118,12 @@
 </style>
 </head>
 <body>
+
+<!-- Spectator bar -->
+<div class="spectator-bar" id="spectatorBar">
+  <span class="spec-label">旁观者模式</span>
+  <span class="spec-info" id="specInfo">调试中 · 不参与游戏 · 不计入人数</span>
+</div>
 
 <!-- Boot loading screen -->
 <div class="boot-screen" id="bootScreen">
@@ -160,6 +170,7 @@
         <div id="joinStatus" style="font-size:9px;color:var(--muted);text-align:center;letter-spacing:1px;"></div>
       </div>
       <button class="btn cyan" onclick="document.getElementById('sessionInput').value='DEMO';joinWithProgress()" style="margin-top:12px;font-size:10px;letter-spacing:3px;">DEMO 模式 — 单人测试</button>
+      <button class="btn" onclick="joinAsSpectator()" style="margin-top:8px;font-size:8px;color:#444;border-color:#333;letter-spacing:2px;">旁观者模式（调试）</button>
     </div>
   </div>
 
@@ -1067,6 +1078,11 @@ function showMission(){
 }
 
 function renderMission(round,teamIds){
+  // Spectator sees mission wait screen with debug info
+  if(S.role==='spectator'){
+    show('s-mission-wait');
+    return;
+  }
   const isOnTeam=teamIds.includes(S.playerId);
   if(isOnTeam){
     show('s-mission');
@@ -1467,6 +1483,86 @@ window.newPlayerSession = function() {
   if (!confirm('退出当前会话并加入新的？')) return;
   localStorage.removeItem('cogito_session');
   location.reload();
+};
+
+// ===== SPECTATOR MODE =====
+window.joinAsSpectator = async function() {
+  const code = document.getElementById('sessionInput').value.trim().toUpperCase();
+  if (!code) { alert('请输入会话代码'); return; }
+  S.sessionId = code;
+  S.playerId = 'SPEC_'+Date.now().toString(36);
+  S.role = 'spectator';
+  S.specialRole = 'spectator';
+  S.codeName = 'SPECTATOR';
+  S.empId = 'DEBUG';
+
+  // Activate spectator bar
+  document.getElementById('spectatorBar').classList.add('active');
+  document.getElementById('bootScreen').classList.add('done');
+
+  // Don't write to Firebase players — spectator is invisible
+  // But DO listen to all game data
+  if (!DEMO && code !== 'DEMO') {
+    // Listen for phase changes
+    onValue(ref(db,`sessions/${code}/phase`),snap=>{
+      const p=snap.val();
+      if(p!==null&&p!==S.phase) handleP(p);
+    });
+    // Listen for players (to see everything)
+    onValue(ref(db,`sessions/${code}/players`),snap=>{
+      S.allPlayers=snap.val()||{};
+      const count = Object.values(S.allPlayers).filter(p=>p.status!=='eliminated').length;
+      document.getElementById('specInfo').textContent=`调试 · ${count}人在线 · P:${S.phase}`;
+    });
+    // Listen for game state
+    onValue(ref(db,`sessions/${code}/gameState`),snap=>{
+      const gs=snap.val();
+      if(gs) S.gameState=gs;
+    });
+    // Listen for chat
+    onValue(ref(db,`sessions/${code}/chat`),snap=>{
+      const chats=snap.val()||{};
+      let msgs=[];
+      Object.entries(chats).forEach(([key,convMsgs])=>{
+        Object.values(convMsgs).forEach(m=>{
+          const from=S.allPlayers[m.from]?.codeName||m.from?.slice(0,6)||'?';
+          const to=S.allPlayers[m.to]?.codeName||m.to?.slice(0,6)||'?';
+          msgs.push({ts:m.ts,text:`[${from}→${to}] ${m.text}`});
+        });
+      });
+      msgs.sort((a,b)=>b.ts-a.ts);
+      // Show in inline chat area
+      const el=document.getElementById('icMsgs');
+      if(el&&msgs.length){
+        el.innerHTML=msgs.slice(0,50).map(m=>`<div class="chat-msg theirs" style="max-width:100%;"><span class="msg-from">${new Date(m.ts).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</span> ${m.text}</div>`).join('');
+      }
+    });
+  }
+
+  // Show spectator identity screen
+  show('s-identity');
+  document.getElementById('idCodeName').textContent='SPECTATOR';
+  document.getElementById('idCodeName2').textContent='DEBUG';
+  document.getElementById('idEmpId').textContent='N/A';
+  document.getElementById('idAwaken').textContent='——';
+  document.getElementById('idMaster').textContent='——';
+  document.getElementById('idCommunity').textContent='旁观者';
+  document.getElementById('idBackstory').innerHTML='<span style="color:var(--red);">调试模式。你可以看到所有阶段的变化，但不参与游戏。你的存在对其他玩家不可见。</span>';
+  document.getElementById('secretBox').innerHTML=`<div class="box-title" style="color:var(--red);">-- 调试面板</div>
+    <p style="font-size:10px;color:var(--text);line-height:1.8;">
+      <b style="color:var(--red);">旁观者模式</b><br>
+      · 不计入玩家人数<br>
+      · 不参与投票/任务<br>
+      · 可看到所有阶段变化<br>
+      · 可看到所有私聊消息<br>
+      · 下方聊天区显示全部通讯记录
+    </p>`;
+
+  // Show top bar and chat
+  document.getElementById('topBar').classList.add('active');
+  document.getElementById('onlineCount').textContent='旁观者';
+  document.getElementById('inlineChat').classList.add('active');
+  document.getElementById('icTabs').innerHTML='<span style="font-size:9px;color:var(--muted);padding:6px;">全部通讯记录</span>';
 };
 
 // ===== DEMO PHASE CONTROLLER =====
