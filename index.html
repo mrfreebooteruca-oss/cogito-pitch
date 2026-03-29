@@ -229,8 +229,20 @@
     <div class="header"><h1>夜 晚 阶 段</h1><div class="sub">请 闭 上 眼 睛</div></div>
     <div class="night-text" id="nightText">等待委员会代表指示...</div>
     <div class="night-info" id="nightInfo" style="display:none;"></div>
-    <div style="text-align:center;padding:12px;font-size:9px;color:#333;letter-spacing:2px;border:1px dashed #222;margin-top:12px;">不要让任何人看到你的屏幕</div>
-    <div class="waiting">等待所有人确认</div>
+
+    <!-- Player list visible during night -->
+    <div class="box" style="margin-top:10px;">
+      <div class="box-title">-- 在场公民</div>
+      <div id="nightPlayerList" style="font-size:10px;color:var(--muted);"></div>
+    </div>
+
+    <!-- Chat hint for humans -->
+    <div id="nightChatHint" style="display:none;text-align:center;padding:8px;margin-top:8px;border:1px dashed var(--red);font-size:9px;color:var(--red);letter-spacing:1px;cursor:pointer;" onclick="toggleChat()">
+      点击右下角 ✉ 与同伴私聊策略
+    </div>
+
+    <div style="text-align:center;padding:10px;font-size:8px;color:#333;letter-spacing:2px;border:1px dashed #1a1a2e;margin-top:10px;">不要让任何人看到你的屏幕 — 委员会第九号训令</div>
+    <div class="waiting">等待委员会代表完成夜晚流程</div>
   </div>
 
   <!-- ===== ALERT (human detected) ===== -->
@@ -608,7 +620,15 @@ async function finishC(){
   // Special roles will be determined after all players join
   // For now, mark as basic role
   S.specialRole = null;
-  S.codeName = NAMES[Math.floor(Math.random()*NAMES.length)];
+  // Pick unique name — check existing players to avoid duplicates
+  let usedNames=[];
+  if(!DEMO){
+    const snap=await get(ref(db,`sessions/${S.sessionId}/players`));
+    const existing=snap.val()||{};
+    usedNames=Object.values(existing).map(p=>p.codeName).filter(Boolean);
+  }
+  const available=NAMES.filter(n=>!usedNames.includes(n));
+  S.codeName = available.length>0 ? available[Math.floor(Math.random()*available.length)] : NAMES[Math.floor(Math.random()*NAMES.length)]+'-'+Math.floor(Math.random()*9);
   S.empId = 'CG-'+String(Math.floor(Math.random()*9000)+1000);
   show('s-analysis');
   for(const id of['a1','a2','a3','a4']){await delay(200);document.getElementById(id).style.width='100%';}
@@ -661,7 +681,7 @@ function updateSecretBriefing(){
   if(S.role==='human'){
     const humanList = otherHumans.length ?
       `<br><span style="color:var(--cyan);">你的同伴：<b>${otherHumans.join('、')}</b></span><br>保护彼此。不要互相投票。` :
-      '<br><span style="color:var(--muted);">你是唯一的人类卧底。</span>';
+      '';
     const assassinNote = S.specialRole==='assassin' ?
       '<br><br><span style="color:var(--red);">⚠ 你是刺客。如果AI阵营赢得2轮任务，你将有机会指认"安全主管"——猜对就能翻盘。</span>' : '';
     sb.innerHTML=`<div class="box-title" style="color:var(--red);">-- ⚠ 真实身份（绝密）</div>
@@ -723,11 +743,11 @@ function handleP(p){
   S.phase=p;
   // Show/hide mission board
   const mb=document.getElementById('missionBoard');
-  if(p>=3) mb.classList.add('active'); else mb.classList.remove('active');
+  if(p>=4) mb.classList.add('active'); else mb.classList.remove('active');
 
   if(p===1) show('s-identity');
-  if(p===2) showNight();
-  if(p===3){show('s-alert',true);if(navigator.vibrate)navigator.vibrate([100,50,100]);}
+  if(p===2){show('s-alert',true);if(navigator.vibrate)navigator.vibrate([100,50,100]);}
+  if(p===3) showNight();
   if(p===4) showTeam();
   if(p===5) showTeamVote();
   if(p===6) showMission();
@@ -930,24 +950,68 @@ function showNight(){
   show('s-night',true);
   const info=document.getElementById('nightInfo');
   const text=document.getElementById('nightText');
+  const chatHint=document.getElementById('nightChatHint');
+  const playerList=document.getElementById('nightPlayerList');
+
+  // Show all players in the session
+  let plHtml='';
+  Object.entries(S.allPlayers).forEach(([id,p])=>{
+    if(p.status==='eliminated')return;
+    const isMe=id===S.playerId;
+    const color=isMe?'var(--amber)':'var(--text)';
+    plHtml+=`<div style="padding:3px 0;border-bottom:1px dotted #1a1a2e;display:flex;justify-content:space-between;">
+      <span style="color:${color};">${p.codeName||'?'}${isMe?' (你)':''}</span>
+      <span style="color:var(--muted);font-size:9px;">${p.empId||''}</span>
+    </div>`;
+  });
+  playerList.innerHTML=plHtml||'<span>等待玩家...</span>';
+
+  // Night phase info based on role — follows Avalon step sequence
+  // DM announces: "所有人闭眼" → "人类睁眼互认" → "人类闭眼" → "安全主管睁眼" → "安全主管闭眼" → "所有人睁眼"
+  // Each role sees their info at the right moment on their phone
 
   if(S.role==='human'){
-    text.textContent='人类卧底 — 睁眼';
+    text.textContent='「人类卧底——睁开眼睛，确认你的同伴。」';
     const otherHumans=Object.entries(S.allPlayers).filter(([id,p])=>p.role==='human'&&id!==S.playerId).map(([_,p])=>p.codeName);
     info.style.display='block';
     info.style.borderColor='var(--red)';
-    info.innerHTML=`<div style="color:var(--red);font-size:12px;">你的同伴：</div><div style="color:var(--text);font-size:16px;margin-top:6px;letter-spacing:2px;">${otherHumans.join(' · ')||'你是唯一的人类'}</div>`;
-    if(navigator.vibrate)navigator.vibrate(100);
+    info.innerHTML=`
+      <div style="font-size:10px;color:var(--red);letter-spacing:2px;margin-bottom:8px;">⚠ 你是人类卧底</div>
+      <div style="font-size:11px;color:var(--text);margin-bottom:6px;">你的同伴：</div>
+      <div style="color:var(--red);font-size:18px;letter-spacing:4px;margin:8px 0;">${otherHumans.join(' · ')}</div>
+      <div style="font-size:9px;color:var(--muted);margin-top:8px;line-height:1.6;">
+        记住他们的代号。在任务中配合。<br>
+        ${S.specialRole==='assassin'?'<span style="color:var(--red);">你是刺客。AI赢后你可以指认安全主管翻盘。</span>':'你不是刺客，但你的同伴中有一位。'}
+      </div>`;
+    chatHint.style.display='block';
+    if(navigator.vibrate)navigator.vibrate([100,50,100]);
   } else if(S.specialRole==='overseer'){
-    text.textContent='安全主管 — 睁眼';
+    text.textContent='「安全主管——睁开眼睛，确认人类的身份。」';
     const humanNames=Object.entries(S.allPlayers).filter(([id,p])=>p.role==='human').map(([_,p])=>p.codeName);
     info.style.display='block';
     info.style.borderColor='var(--cyan)';
-    info.innerHTML=`<div style="color:var(--cyan);font-size:12px;">人类卧底身份：</div><div style="color:var(--red);font-size:16px;margin-top:6px;letter-spacing:2px;">${humanNames.join(' · ')}</div>`;
-    if(navigator.vibrate)navigator.vibrate(100);
+    info.innerHTML=`
+      <div style="font-size:10px;color:var(--cyan);letter-spacing:2px;margin-bottom:8px;">⚠ 你是安全主管</div>
+      <div style="font-size:11px;color:var(--text);margin-bottom:6px;">人类卧底的身份：</div>
+      <div style="color:var(--red);font-size:18px;letter-spacing:4px;margin:8px 0;">${humanNames.join(' · ')}</div>
+      <div style="font-size:9px;color:var(--muted);margin-top:8px;line-height:1.6;">
+        你知道真相。引导AI同胞做出正确的选择。<br>
+        <span style="color:var(--amber);">但绝对不能暴露你的身份——<br>如果AI赢了，人类会试图刺杀你。</span>
+      </div>`;
+    chatHint.style.display='none';
+    if(navigator.vibrate)navigator.vibrate([100,50,100]);
   } else {
-    text.textContent='请闭上眼睛...';
-    info.style.display='none';
+    text.textContent='「所有人闭上眼睛。等待委员会代表的指示。」';
+    info.style.display='block';
+    info.style.borderColor='var(--border)';
+    info.innerHTML=`
+      <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-align:center;line-height:1.8;">
+        你是普通AI公民。<br>
+        在夜晚阶段你什么也看不到。<br><br>
+        <span style="color:var(--amber-dim);">人类卧底正在互相确认身份...<br>安全主管正在确认人类的身份...</span><br><br>
+        <span style="font-size:9px;color:#444;">等待所有人睁眼后，游戏正式开始。</span>
+      </div>`;
+    chatHint.style.display='none';
   }
 }
 
