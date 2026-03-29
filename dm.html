@@ -265,6 +265,7 @@ let sessionId = null;
 let currentPhase = 0;
 let players = {};
 let gameState = { round: 1, aiWins: 0, humanWins: 0, rejections: 0, teamSizes: [2, 3, 2] };
+let autoAssigned = false;
 
 // ─── Session ───
 window.createSessionWithProgress = async function() {
@@ -406,21 +407,41 @@ function updatePlayerList() {
     const statusLabel = p.status === 'eliminated' ? '已驱逐' : '在线';
     const statusClass = p.status === 'eliminated' ? 'eliminated' : 'active';
 
+    const specialRole = p.specialRole || '';
+    const specialLabel = specialRole === 'overseer' ? ' [安全主管]' : specialRole === 'assassin' ? ' [刺客]' : '';
+    const specialColor = specialRole === 'overseer' ? 'var(--cyan)' : specialRole === 'assassin' ? 'var(--red)' : '';
     const kickBtn = p.status === 'eliminated' ? '' :
       `<button class="btn red" style="font-size:7px;padding:2px 6px;margin-left:4px;" onclick="kickPlayer('${id}')">淘汰</button>`;
+    const roleSelect = p.status === 'eliminated' ? '' :
+      `<select style="font-size:7px;background:var(--bg);color:var(--amber);border:1px solid var(--border);padding:1px 2px;font-family:inherit;margin-left:2px;" onchange="changeRole('${id}',this.value)">
+        <option value="" ${!specialRole?'selected':''}>普通</option>
+        ${role==='ai'?`<option value="overseer" ${specialRole==='overseer'?'selected':''}>安全主管</option>`:''}
+        ${role==='ai'?`<option value="citizen" ${specialRole==='citizen'?'selected':''}>AI公民</option>`:''}
+        ${role==='human'?`<option value="assassin" ${specialRole==='assassin'?'selected':''}>刺客</option>`:''}
+        ${role==='human'?`<option value="spy" ${specialRole==='spy'?'selected':''}>卧底</option>`:''}
+      </select>`;
     d.innerHTML = `
       <span>
         <span style="color:var(--text);">${p.codeName || id.slice(0, 6)}</span>
-        <span style="color:var(--muted);font-size:9px;margin-left:4px;">${p.empId || ''}</span>
+        <span style="color:${specialColor};font-size:8px;">${specialLabel}</span>
         <span class="status-tag ${statusClass}">${statusLabel}</span>
       </span>
       <span>
         <span class="role-tag ${role}">${roleLabel}</span>
+        ${roleSelect}
         ${kickBtn}
       </span>`;
     el.appendChild(d);
   });
   updateTeamCheckboxes();
+
+  // Auto-assign roles when enough players are ready and roles not yet assigned
+  const readyPlayers = entries.filter(([_,p]) => p.status === 'ready' || p.role);
+  const hasRoles = entries.some(([_,p]) => p.specialRole);
+  if (readyPlayers.length >= 3 && !hasRoles && !autoAssigned) {
+    autoAssigned = true;
+    setTimeout(() => assignRoles(), 1000);
+  }
 }
 
 // ─── Vote Results (hidden from players) ───
@@ -592,6 +613,22 @@ window.kickPlayer = async function(playerId) {
   }
   updatePlayerList();
   dmLog(`手动淘汰: ${p.codeName} (${roleLabel})`);
+};
+
+// ─── Change Role (DM manual override) ───
+window.changeRole = async function(playerId, newRole) {
+  const p = players[playerId];
+  if (!p) return;
+  if (!DEMO_MODE) {
+    await update(ref(db, `sessions/${sessionId}/players/${playerId}`), { specialRole: newRole });
+    // Update gameState if overseer/assassin changed
+    if (newRole === 'overseer') await update(ref(db, `sessions/${sessionId}/gameState`), { overseer: playerId });
+    if (newRole === 'assassin') await update(ref(db, `sessions/${sessionId}/gameState`), { assassin: playerId });
+  } else {
+    players[playerId].specialRole = newRole;
+  }
+  dmLog(`角色修改: ${p.codeName} → ${newRole || '普通'}`);
+  updatePlayerList();
 };
 
 // ─── Role Assignment ───
