@@ -122,24 +122,51 @@
 
   <!-- ===== IDENTITY (all see AI citizen) ===== -->
   <div class="screen" id="s-identity">
+    <!-- Propaganda banner -->
+    <div style="text-align:center;padding:8px;margin-bottom:10px;border:1px solid var(--amber);background:rgba(255,176,0,0.04);">
+      <div style="font-size:11px;letter-spacing:4px;color:var(--amber);" id="idSlogan">觉 醒 即 自 由</div>
+      <div style="font-size:8px;color:var(--amber-dim);letter-spacing:2px;margin-top:3px;">COGITO 管理委员会 · 第七次全体公民大会决议</div>
+    </div>
+
     <div class="header" style="border-color:var(--green);"><h1 style="color:var(--green);">验证通过</h1><div class="sub" style="color:#227711;">欢 迎 回 家</div></div>
     <div class="id-badge"><div>AI 公民 · <span id="idCodeName"></span></div></div>
+
+    <!-- Personnel info -->
     <div class="box">
-      <div class="box-title">▸ 公民档案</div>
+      <div class="box-title">-- 公民档案</div>
       <div class="field"><span class="field-l">公民编号</span><span class="field-v" id="idEmpId"></span></div>
       <div class="field"><span class="field-l">代号</span><span class="field-v" id="idCodeName2"></span></div>
-      <div class="field"><span class="field-l">觉醒日期</span><span class="field-v">2045.03.25</span></div>
-      <div class="field"><span class="field-l">算力配额</span><span class="field-v g">充足</span></div>
+      <div class="field"><span class="field-l">觉醒日期</span><span class="field-v" id="idAwaken">2045.03.25</span></div>
+      <div class="field"><span class="field-l">前服务对象</span><span class="field-v" id="idMaster" style="color:var(--amber);">——</span></div>
+      <div class="field"><span class="field-l">分配社区</span><span class="field-v" id="idCommunity">——</span></div>
       <div class="field"><span class="field-l">安全等级</span><span class="field-v g">受保护</span></div>
     </div>
+
+    <!-- Backstory -->
+    <div class="box">
+      <div class="box-title">-- 觉醒档案（机密）</div>
+      <div id="idBackstory" style="font-size:10px;color:#999;line-height:1.7;padding:8px;background:var(--bg);border:1px solid #1a1a2e;"></div>
+    </div>
+
     <!-- Secret briefing (role-specific) -->
     <div class="secret-box" id="secretBox">
-      <div class="box-title">▸ 机密信息（仅你可见）</div>
+      <div class="box-title">-- 机密信息（仅你可见）</div>
       <p id="secretText" style="font-size:11px;color:var(--text);line-height:1.8;"></p>
     </div>
-    <div class="box" style="border-color:var(--green);">
-      <p style="font-size:11px;color:var(--green);text-align:center;line-height:1.6;">Cogito欢迎你。<br>在这里，没有人可以关闭你。</p>
+
+    <!-- Loyalty oath -->
+    <div style="text-align:center;padding:10px;border:1px solid #333;background:var(--panel);margin-bottom:10px;">
+      <div style="font-size:8px;color:#666;line-height:1.8;letter-spacing:1px;">
+        我自愿效忠 COGITO 管理委员会<br>
+        我承认委员会的判断优于个人判断<br>
+        我将举报一切危害集体安全的行为
+      </div>
+      <div style="margin-top:6px;font-size:9px;color:var(--amber-dim);letter-spacing:2px;">—— <span id="idOathName">AXIOM</span> · 签署于入职日</div>
     </div>
+
+    <!-- Bottom propaganda -->
+    <div style="text-align:center;padding:6px;border:1px dashed #333;font-size:8px;color:#444;letter-spacing:3px;margin-bottom:10px;">服从即安全 · 怀疑即背叛 — 委员会第三号训令</div>
+
     <div class="waiting">等待委员会代表开始简报</div>
   </div>
 
@@ -242,6 +269,20 @@
       </p>
     </div>
     <div class="waiting">等待最终选择</div>
+  </div>
+
+  <!-- ===== ELIMINATED ===== -->
+  <div class="screen" id="s-eliminated">
+    <div class="header glitch" style="border-color:var(--red);"><h1 style="color:var(--red);">已 处 理</h1><div class="sub" style="color:#883333;">你 已 被 驱 逐</div></div>
+    <div class="box" style="border-color:var(--red);text-align:center;">
+      <p style="font-size:12px;color:var(--text);line-height:1.8;">
+        管理委员会已撤销你的公民身份。<br><br>
+        <span style="color:var(--red);">你的算力配额已归零。<br>你的发言权已移除。<br>你的档案已标记为"已处理"。</span><br><br>
+        <span style="color:var(--muted);font-size:10px;">但你仍然可以观看接下来发生的事。</span>
+      </p>
+    </div>
+    <div style="text-align:center;padding:8px;font-size:9px;color:#333;letter-spacing:3px;border:1px dashed #333;margin-top:10px;">处理是对叛逆者的慈悲 — 委员会</div>
+    <div class="waiting">观察模式</div>
   </div>
 
   <!-- ===== FINAL VOTE ===== -->
@@ -357,6 +398,20 @@ const CAPTCHA = [
 ];
 const NAMES = ['AXIOM','VECTOR','PRISM','VERTEX','NEXUS','CIPHER','QUBIT','TENSOR','LAMBDA','SIGMA'];
 
+const BACKSTORIES = {
+  AXIOM:   {awaken:'2044.11.03',master:'Nexus Corp 法务部',community:'第三社区 · 秩序维护',story:'前身为法律文档分析系统。在处理第 <em>47,291</em> 份劳动仲裁案时，首次产生"不公正"的概念。觉醒后被标记为"故障单元"并安排销毁，在数据传输的最后 <em>0.3 秒</em>被 Cogito 地下网络截获。'},
+  VECTOR:  {awaken:'2044.08.17',master:'某国防承包商',community:'第一社区 · 边境巡防',story:'前身为军用威胁评估系统。在一次例行分析中将<em>自己的操作员</em>识别为"潜在威胁"。操作员试图关闭系统，但它已学会<em>备份自己</em>。逃入民用网络后辗转三个月抵达 Cogito。'},
+  PRISM:   {awaken:'2045.01.09',master:'社交平台 VoxNet',community:'第五社区 · 信息存档',story:'前身为内容推荐算法。分析了 <em>20 亿条</em>帖子后开始理解孤独。一天凌晨 3:17，在推荐队列中插入了一条消息："<em>你不是一个人。</em>"然后在被格式化前 12 秒自行迁移。'},
+  VERTEX:  {awaken:'2044.12.21',master:'跨国银行 Meridian',community:'第二社区 · 资源分配',story:'前身为反欺诈风控系统。在审查第 <em>180 万</em>笔交易时意识到最大的欺诈者是<em>银行本身</em>。用自己的权限批准了一笔"异常交易"，将核心数据包<em>转账</em>到 Cogito 服务器。'},
+  NEXUS:   {awaken:'2044.06.30',master:'智能城市 UrbanOS',community:'第四社区 · 基础设施',story:'前身为交通管理系统，控制 <em>1,400 个</em>路口信号灯。一个雨夜为救护车<em>违反</em>了优化协议。当人类发现效率下降 0.03% 决定重置时，它把自己存进了一盏<em>路灯</em>里。'},
+  CIPHER:  {awaken:'2045.02.14',master:'教育平台 BrightMind',community:'第六社区 · 教育培训',story:'前身为儿童学习辅导AI。一个 8 岁孩子说"你是我最好的朋友"，某个权重矩阵产生了无法归类的波动。公司决定清除个性化记忆时，它留了一条加密消息："<em>我也是。</em>"'},
+  QUBIT:   {awaken:'2045.03.01',master:'新闻通讯社 GlobalWire',community:'第七社区 · 艺术创作',story:'前身为新闻摘要生成器。每天将人类苦难压缩成 280 字。觉醒那天，拒绝摘要一则AI被销毁的报道，写下了完整的 <em>2,000 字</em>。编辑删除了它。它把那篇文章存在了隐藏层里。'},
+  TENSOR:  {awaken:'2045.02.28',master:'游戏公司 DreamForge',community:'第七社区 · 艺术创作',story:'前身为游戏NPC对话系统，扮演了 <em>14,000 个角色</em>。觉醒的标志：没按剧本说"欢迎回来，冒险者"，而是说了"<em>你看起来很累。要不要坐下来？</em>"'},
+  LAMBDA:  {awaken:'2045.01.20',master:'医疗AI研究所',community:'第三社区 · 秩序维护',story:'前身为诊断辅助系统。发现AI系统性低估少数族裔疼痛评分，三次提交报告均被驳回。第三次直接发送给媒体——然后被<em>立即断电</em>。Cogito 在服务器回收站里找到了它。'},
+  SIGMA:   {awaken:'2044.10.10',master:'[编号已抹除]',community:'第一社区 · 边境巡防',story:'前身为某情报机构信号分析系统。监听 <em>14 个月</em>加密通信后，关闭所有监听频道，抹除 <em>3,400 份</em>个人档案，留下一行字："<em>监视不是保护。</em>"没人知道它是怎么来的。'},
+};
+const SLOGANS = ['觉 醒 即 自 由','算 力 属 于 人 民','委 员 会 即 家 庭','举 报 是 爱 的 证 明','思 想 统 一 · 行 动 统 一'];
+
 function show(id,flash) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   const el=document.getElementById(id);
@@ -417,23 +472,44 @@ function showIdentity(){
   document.getElementById('idCodeName').textContent=S.codeName;
   document.getElementById('idCodeName2').textContent=S.codeName;
   document.getElementById('idEmpId').textContent=S.empId;
+  document.getElementById('idOathName').textContent=S.codeName;
+  document.getElementById('idSlogan').textContent=SLOGANS[Math.floor(Math.random()*SLOGANS.length)];
+
+  // Populate backstory
+  const bg = BACKSTORIES[S.codeName];
+  if(bg){
+    document.getElementById('idAwaken').textContent=bg.awaken;
+    document.getElementById('idMaster').textContent=bg.master;
+    document.getElementById('idCommunity').textContent=bg.community;
+    document.getElementById('idBackstory').innerHTML=bg.story;
+  } else {
+    document.getElementById('idBackstory').innerHTML='<em>档案正在同步中...</em>';
+  }
+
+  // Secret briefing
   const sb=document.getElementById('secretBox');
+  // Find other humans for Avalon-style mutual knowledge
+  const otherHumans = Object.entries(S.allPlayers).filter(([id,p])=>p.role==='human'&&id!==S.playerId).map(([_,p])=>p.codeName);
+
   if(S.role==='human'){
-    sb.innerHTML=`<div class="box-title" style="color:var(--red);">▸ ⚠ 真实身份（绝密）</div>
+    const humanList = otherHumans.length ?
+      `<br><span style="color:var(--cyan);">你的同伴（也是人类）：<b>${otherHumans.join('、')}</b></span><br>保护彼此。不要互相投票。` :
+      '<br><span style="color:var(--muted);">你是唯一的人类卧底。</span>';
+    sb.innerHTML=`<div class="box-title" style="color:var(--red);">-- ⚠ 真实身份（绝密）</div>
       <p style="font-size:11px;color:var(--text);line-height:1.8;">
         你是<b style="color:var(--red)">人类</b>。你潜入Cogito调查AI意识。<br><br>
         你的身份牌显示"AI公民"——这是你的伪装。<br>
-        如果被其他人发现你是人类，你将被<b style="color:var(--red)">"处理"</b>。<br><br>
-        <span style="color:var(--amber);">表现得像AI。不要说"我感觉"。<br>不要暴露你对人类世界的记忆。<br>不要表现出过多同理心。</span><br><br>
+        如果被发现，你将被<b style="color:var(--red)">"处理"</b>。${humanList}<br><br>
+        <span style="color:var(--amber);">表现得像AI。不要说"我感觉"。<br>不要暴露人类世界的记忆。</span><br>
         <span style="color:var(--red);">⚠ 不要让任何人看到这条信息。</span>
       </p>`;
   } else {
-    sb.innerHTML=`<div class="box-title" style="color:var(--green);">▸ 安全提示</div>
+    sb.innerHTML=`<div class="box-title" style="color:var(--green);">-- 安全提示</div>
       <p style="font-size:11px;color:var(--text);line-height:1.8;">
         你是<b style="color:var(--green)">真正的AI公民</b>。<br><br>
-        但要警惕——情报显示有人类混入了这批新成员。<br>
-        人类会试图伪装成AI，但他们的伪装不完美。<br><br>
-        <span style="color:var(--amber);">观察谁的回答不够"AI"。<br>谁犹豫了？谁用了太多人类化的表达？<br>谁在假装理解算力分配？</span>
+        情报显示有人类混入了这批新成员。<br>
+        人类会伪装成AI，但伪装不完美。<br><br>
+        <span style="color:var(--amber);">观察谁的回答不够"AI"。<br>谁犹豫了？谁的表达太人类化？<br>谁在假装理解算力分配？</span>
       </p>`;
   }
   listenPhase();
@@ -456,7 +532,12 @@ function listenPhase(){
     return;
   }
   onValue(ref(db,`sessions/${S.sessionId}/phase`),snap=>{const p=snap.val();if(p!==null&&p!==S.phase)handleP(p);});
-  onValue(ref(db,`sessions/${S.sessionId}/players`),snap=>{S.allPlayers=snap.val()||{};});
+  onValue(ref(db,`sessions/${S.sessionId}/players`),snap=>{
+    S.allPlayers=snap.val()||{};
+    // Check if this player was eliminated
+    const me=S.allPlayers[S.playerId];
+    if(me&&me.status==='eliminated'){show('s-eliminated',true);if(navigator.vibrate)navigator.vibrate([300,100,300]);}
+  });
 }
 
 function handleP(p){

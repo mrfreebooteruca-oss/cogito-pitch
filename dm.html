@@ -500,6 +500,8 @@ function updatePlayerList() {
     const statusLabel = p.status === 'eliminated' ? '已驱逐' : '在线';
     const statusClass = p.status === 'eliminated' ? 'eliminated' : 'active';
 
+    const kickBtn = p.status === 'eliminated' ? '' :
+      `<button class="btn red" style="font-size:7px;padding:2px 6px;margin-left:4px;" onclick="kickPlayer('${id}')">淘汰</button>`;
     d.innerHTML = `
       <span>
         <span style="color:var(--text);">${p.codeName || id.slice(0, 6)}</span>
@@ -508,6 +510,7 @@ function updatePlayerList() {
       </span>
       <span>
         <span class="role-tag ${role}">${roleLabel}</span>
+        ${kickBtn}
       </span>`;
     el.appendChild(d);
   });
@@ -750,6 +753,22 @@ window.setElimination = async function(processed) {
 
 window.processAccused = () => setElimination(true);
 window.spareAccused = () => setElimination(false);
+
+// ─── Kick Player (direct eliminate) ───
+window.kickPlayer = async function(playerId) {
+  const p = players[playerId];
+  if (!p) return;
+  const roleLabel = p.role === 'human' ? '人类' : p.role === 'ai' ? 'AI' : '未知';
+  if (!confirm(`淘汰 ${p.codeName} (${roleLabel})？`)) return;
+
+  if (!DEMO_MODE) {
+    await update(ref(db, `sessions/${sessionId}/players/${playerId}`), { status: 'eliminated' });
+  } else {
+    players[playerId].status = 'eliminated';
+  }
+  updatePlayerList();
+  dmLog(`手动淘汰: ${p.codeName} (${roleLabel})`);
+};
 
 // ─── Event Log ───
 function dmLog(msg) {
