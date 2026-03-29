@@ -776,6 +776,8 @@ function showIdentity(){
   showInlineChat();
   listenIcChats();
   listenPhase();
+  // Re-update briefing after a delay to ensure allPlayers roles are loaded
+  setTimeout(() => updateSecretBriefing(), 3000);
 }
 
 function updateSecretBriefing(){
@@ -833,6 +835,11 @@ function listenPhase(){
     return;
   }
   onValue(ref(db,`sessions/${S.sessionId}/phase`),snap=>{const p=snap.val();if(p!==null&&p!==S.phase)handleP(p);});
+  // Get current phase immediately (for mid-game joins)
+  get(ref(db,`sessions/${S.sessionId}/phase`)).then(snap=>{
+    const p=snap.val();
+    if(p!==null && p > 0) handleP(p);
+  });
   onValue(ref(db,`sessions/${S.sessionId}/players`),snap=>{
     S.allPlayers=snap.val()||{};
     // Update online count
@@ -847,13 +854,26 @@ function listenPhase(){
     if (capEl) capEl.textContent = captainName ? ('队长: ' + captainName) : '';
     // Rebuild chat tabs when players change
     if (document.getElementById('inlineChat').classList.contains('active')) buildIcTabs();
+    // Re-update secret briefing if we have a role (to see other humans etc.)
+    if(S.specialRole) updateSecretBriefing();
     // Check if this player was eliminated
     const me=S.allPlayers[S.playerId];
     if(me&&me.status==='eliminated'){show('s-eliminated',true);if(navigator.vibrate)navigator.vibrate([300,100,300]);}
   });
   onValue(ref(db,`sessions/${S.sessionId}/gameState`),snap=>{
     const gs=snap.val();
-    if(gs) S.gameState=gs;
+    if(gs) {
+      S.gameState=gs;
+      renderMissionBoard();
+      // Re-render captain display
+      const capEl=document.getElementById('captainDisplay');
+      const order=gs.playerOrder||[];
+      const cIdx=gs.captainIdx||0;
+      const captainId=order[cIdx%(order.length||1)];
+      if(capEl) capEl.textContent=S.allPlayers[captainId]?.codeName?('队长: '+S.allPlayers[captainId].codeName):'';
+      // Re-render team screen if currently on it
+      if(S.phase===4) showTeam();
+    }
   });
 }
 
@@ -1510,14 +1530,20 @@ function buildIcTabs() {
   });
 }
 
+let _icUnsub = null;
+
 function loadIcMessages(targetId) {
   const chatKey = getIcChatKey(S.playerId, targetId);
   document.getElementById('icStatus').textContent = S.allPlayers[targetId]?.codeName || '';
 
+  // Unsubscribe from previous listener
+  if (_icUnsub) { _icUnsub(); _icUnsub = null; }
+
   if (!DEMO) {
-    onValue(ref(db, `sessions/${S.sessionId}/chat/${chatKey}`), snap => {
+    const unsubscribe = onValue(ref(db, `sessions/${S.sessionId}/chat/${chatKey}`), snap => {
       renderIcMessages(snap.val() || {});
     });
+    _icUnsub = unsubscribe;
   } else {
     renderIcMessages(icState.messages[chatKey] || {});
   }
