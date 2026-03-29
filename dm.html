@@ -198,6 +198,13 @@
       <div class="panel-title">&#9654; 最终投票</div>
       <div id="finalVoteResults"><p style="font-size:9px;color:var(--muted);">最终阶段后显示...</p></div>
     </div>
+
+    <div class="panel">
+      <div class="panel-title" style="color:var(--red);">&#9654; 通讯监控（所有私聊）</div>
+      <div id="chatMonitor" style="max-height:300px;overflow-y:auto;font-size:9px;">
+        <p style="color:var(--muted);">玩家开始通讯后显示...</p>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -323,6 +330,7 @@ window.createSession = async function() {
   renderPhases();
   updateScript();
   dmLog('会话创建: ' + sessionId);
+  startChatMonitor();
 };
 
 function genCode() {
@@ -751,6 +759,44 @@ function dmLog(msg) {
   const d = document.createElement('div');
   d.textContent = `[${t}] ${msg}`;
   el.prepend(d);
+}
+
+// ─── Chat Monitoring ───
+function startChatMonitor() {
+  if (DEMO_MODE || !sessionId) return;
+  onValue(ref(db, `sessions/${sessionId}/chat`), snap => {
+    const allChats = snap.val() || {};
+    const el = document.getElementById('chatMonitor');
+    const allMsgs = [];
+
+    Object.entries(allChats).forEach(([chatKey, msgs]) => {
+      Object.values(msgs).forEach(m => {
+        const fromName = players[m.from]?.codeName || m.from?.slice(0, 6) || '?';
+        const toName = players[m.to]?.codeName || m.to?.slice(0, 6) || '?';
+        const fromRole = players[m.from]?.role === 'human' ? '人类' : 'AI';
+        const toRole = players[m.to]?.role === 'human' ? '人类' : 'AI';
+        const time = m.ts ? new Date(m.ts).toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
+        allMsgs.push({
+          ts: m.ts || 0,
+          html: `<div style="padding:3px 0;border-bottom:1px dotted #1a1a2e;">
+            <span style="color:var(--muted);">[${time}]</span>
+            <span style="color:${players[m.from]?.role==='human'?'var(--cyan)':'var(--green)'};">${fromName}</span>
+            <span style="color:var(--muted);">→</span>
+            <span style="color:${players[m.to]?.role==='human'?'var(--cyan)':'var(--green)'};">${toName}</span>
+            <span style="color:var(--text);">: ${m.text}</span>
+          </div>`
+        });
+      });
+    });
+
+    allMsgs.sort((a, b) => b.ts - a.ts);
+
+    if (allMsgs.length === 0) {
+      el.innerHTML = '<p style="color:var(--muted);">玩家开始通讯后显示...</p>';
+    } else {
+      el.innerHTML = allMsgs.map(m => m.html).join('');
+    }
+  });
 }
 
 // ─── Init ───
