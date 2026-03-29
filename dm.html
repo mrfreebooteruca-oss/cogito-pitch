@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COGITO — DM 控制台</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--bg:#0a0a0c;--panel:#0f0f14;--border:#222;--amber:#ffb000;--amber-dim:#887700;--amber-glow:rgba(255,176,0,0.15);--green:#39ff14;--red:#ff3333;--cyan:#00bcd4;--text:#e0e0e0;--muted:#555;}
+  body{background:var(--bg);color:var(--amber);font-family:'Share Tech Mono','Consolas','Courier New',monospace;padding:16px;position:relative;}
+  body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);pointer-events:none;z-index:1000;}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;max-width:1440px;margin:0 auto;}
+  .col{display:flex;flex-direction:column;gap:12px;}
+  .panel{border:1px solid var(--border);background:var(--panel);padding:14px;}
+  .panel-title{font-size:10px;color:var(--amber-dim);letter-spacing:2px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+  h1{text-align:center;font-size:16px;letter-spacing:6px;margin-bottom:4px;}
+  .sub{text-align:center;font-size:10px;color:var(--amber-dim);letter-spacing:3px;margin-bottom:16px;}
+
+  .btn{display:inline-block;padding:8px 16px;margin:3px;background:transparent;border:1px solid var(--amber);color:var(--amber);font-family:inherit;font-size:11px;cursor:pointer;letter-spacing:2px;transition:all 0.2s;}
+  .btn:hover{background:var(--amber-glow);}
+  .btn.big{padding:12px 24px;font-size:13px;}
+  .btn.red{border-color:var(--red);color:var(--red);}.btn.red:hover{background:rgba(255,51,51,0.1);}
+  .btn.green{border-color:var(--green);color:var(--green);}.btn.green:hover{background:rgba(57,255,20,0.1);}
+  .btn.cyan{border-color:var(--cyan);color:var(--cyan);}.btn.cyan:hover{background:rgba(0,188,212,0.1);}
+  .btn:disabled{opacity:0.3;cursor:not-allowed;pointer-events:none;}
+  .btn-row{display:flex;gap:6px;flex-wrap:wrap;}
+
+  .phase-list{display:flex;flex-wrap:wrap;gap:4px;margin:10px 0;}
+  .phase-btn{padding:5px 8px;font-size:9px;background:transparent;border:1px solid #333;color:#666;font-family:inherit;cursor:pointer;transition:all 0.2s;letter-spacing:1px;}
+  .phase-btn:hover{border-color:var(--amber-dim);color:var(--amber-dim);}
+  .phase-btn.current{border-color:var(--amber);color:var(--amber);background:var(--amber-glow);}
+  .phase-btn.past{border-color:var(--green);color:var(--green);opacity:0.5;}
+
+  .session-code{font-size:32px;letter-spacing:8px;text-align:center;color:var(--amber);padding:10px;border:2px dashed var(--amber);margin:10px 0;user-select:all;}
+  .script-box{font-size:11px;color:var(--text);line-height:1.8;padding:12px;background:var(--bg);border:1px solid var(--border);max-height:320px;overflow-y:auto;white-space:pre-wrap;}
+
+  .player-card{border:1px solid var(--border);background:var(--bg);padding:8px 10px;margin:4px 0;display:flex;justify-content:space-between;align-items:center;font-size:11px;transition:all 0.15s;}
+  .player-card.eliminated{opacity:0.35;text-decoration:line-through;}
+  .player-card.accused{border-color:var(--red);background:rgba(255,51,51,0.05);}
+  .role-tag{font-size:9px;padding:2px 6px;border:1px solid;letter-spacing:1px;}
+  .role-tag.human{color:var(--cyan);border-color:var(--cyan);}
+  .role-tag.ai{color:var(--green);border-color:var(--green);}
+  .role-tag.unknown{color:var(--amber-dim);border-color:var(--amber-dim);}
+  .status-tag{font-size:8px;padding:1px 4px;border:1px solid;margin-left:4px;}
+  .status-tag.active{color:var(--green);border-color:var(--green);}
+  .status-tag.eliminated{color:var(--red);border-color:var(--red);}
+
+  .vote-section{margin-bottom:10px;padding-bottom:8px;border-bottom:1px dotted var(--border);}
+  .vote-section:last-child{border-bottom:none;}
+  .vote-section-title{font-size:9px;color:var(--amber-dim);margin-bottom:4px;letter-spacing:1px;}
+  .vote-row{font-size:10px;color:var(--muted);padding:2px 0 2px 8px;}
+  .vote-row .codename{color:var(--text);min-width:60px;display:inline-block;}
+  .vote-row .target{color:var(--red);}
+
+  .vote-tally{margin:4px 0;padding:6px 8px;background:var(--bg);border:1px solid var(--border);}
+  .tally-row{display:flex;justify-content:space-between;align-items:center;font-size:10px;padding:2px 0;}
+  .tally-bar{flex:1;height:8px;background:#1a1a2e;margin:0 8px;overflow:hidden;}
+  .tally-fill{height:100%;background:var(--red);transition:width 0.5s;}
+
+  .accuse-card{border:1px solid var(--border);background:var(--bg);padding:8px 10px;margin:4px 0;font-size:10px;}
+  .accuse-card.top{border-color:var(--red);background:rgba(255,51,51,0.05);}
+
+  #dmLog{font-size:9px;color:#888;max-height:200px;overflow-y:auto;padding:6px;background:var(--bg);border:1px solid #1a1a2e;}
+  #dmLog div{padding:2px 0;border-bottom:1px dotted #111;}
+  #dmLog div:first-child{color:var(--amber);}
+
+  .phase-indicator{text-align:center;padding:8px;border:1px solid var(--amber);margin-bottom:12px;background:var(--amber-glow);}
+  .phase-indicator .phase-num{font-size:24px;letter-spacing:4px;}
+  .phase-indicator .phase-name{font-size:10px;color:var(--amber-dim);letter-spacing:2px;margin-top:2px;}
+
+  .action-zone{padding:10px;border:1px dashed var(--border);margin-top:10px;background:rgba(255,51,51,0.02);}
+  .action-zone-title{font-size:9px;color:var(--red);letter-spacing:2px;margin-bottom:8px;}
+
+  @media(max-width:1024px){.grid{grid-template-columns:1fr 1fr;}.col:nth-child(3){grid-column:span 2;}}
+  @media(max-width:640px){.grid{grid-template-columns:1fr;}.col:nth-child(3){grid-column:span 1;}}
+</style>
+</head>
+<body>
+<h1>COGITO DM 控制台</h1>
+<div class="sub">认 知 委 员 会 代 表 面 板</div>
+
+<div class="grid">
+  <!-- ===== COLUMN 1: Session + Phase + Script ===== -->
+  <div class="col">
+    <div class="panel">
+      <div class="panel-title">&#9654; 会话管理</div>
+      <div id="sessionArea"><button class="btn big" onclick="createSession()">创建新会话</button></div>
+      <div id="sessionInfo" style="display:none;">
+        <p style="font-size:9px;color:var(--muted);">会话代码（告知玩家）：</p>
+        <div class="session-code" id="sessionCode"></div>
+        <p style="font-size:9px;color:var(--amber);word-break:break-all;" id="playerUrl"></p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">&#9654; 阶段控制 <span style="color:var(--green);" id="phaseLabel"></span></div>
+      <div class="phase-list" id="phaseList"></div>
+      <div style="margin-top:10px;" class="btn-row">
+        <button class="btn" id="prevBtn" onclick="prevPhase()" disabled>&larr; 上一阶段</button>
+        <button class="btn big green" id="nextBtn" onclick="nextPhase()" disabled>下一阶段 &rarr;</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">&#9654; 当前台词 / DM 剧本</div>
+      <div class="script-box" id="scriptBox">创建会话后显示...</div>
+    </div>
+  </div>
+
+  <!-- ===== COLUMN 2: Players + Actions ===== -->
+  <div class="col">
+    <div class="panel">
+      <div class="panel-title">&#9654; 玩家列表 <span id="playerCount">(0)</span></div>
+      <div id="playerList"><p style="font-size:9px;color:var(--muted);">等待玩家加入...</p></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">
+        <span>&#9654; 指认/被告操作</span>
+        <button class="btn" style="font-size:8px;padding:2px 8px;" onclick="resolveAccusation()">确定被指认者</button>
+      </div>
+      <div id="accusedDisplay"><p style="font-size:9px;color:var(--muted);">尚未指定被指认者</p></div>
+      <div class="action-zone" id="processZone" style="display:none;">
+        <div class="action-zone-title">&#9888; 处理决定</div>
+        <div class="btn-row">
+          <button class="btn red" onclick="processAccused()">&#128308; 驱逐 / 已处理</button>
+          <button class="btn green" onclick="spareAccused()">&#128994; 放过 / 留下</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">&#9654; 日志</div>
+      <div id="dmLog"></div>
+    </div>
+  </div>
+
+  <!-- ===== COLUMN 3: Votes ===== -->
+  <div class="col">
+    <div class="panel">
+      <div class="panel-title">&#9654; 投票结果（仅DM可见）</div>
+      <div id="voteResults"><p style="font-size:9px;color:var(--muted);">投票后显示...</p></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">&#9654; 指认统计（谁投了谁）</div>
+      <div id="accuseResults"><p style="font-size:9px;color:var(--muted);">指认阶段后显示...</p></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">&#9654; 最终投票</div>
+      <div id="finalVoteResults"><p style="font-size:9px;color:var(--muted);">最终阶段后显示...</p></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js';
+import { getDatabase, ref, set, get, onValue, update, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js';
+
+const FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "000000000000",
+  appId: "YOUR_APP_ID"
+};
+const DEMO_MODE = FIREBASE_CONFIG.apiKey === "YOUR_API_KEY";
+let app, db;
+if (!DEMO_MODE) { app = initializeApp(FIREBASE_CONFIG); db = getDatabase(app); }
+
+// ─── Phase definitions ───
+const PHASES = [
+  { id:0,  name:'等待',     short:'CAPTCHA',  desc:'玩家加入 + 身份验证' },
+  { id:1,  name:'欢迎',     short:'Welcome',  desc:'Cogito 乌托邦介绍' },
+  { id:2,  name:'警报',     short:'Alert',    desc:'人类卧底被发现！' },
+  { id:3,  name:'讨论1',    short:'Discuss1', desc:'自我介绍 + 试探' },
+  { id:4,  name:'投票1',    short:'Vote1',    desc:'谁是人类？隐秘投票' },
+  { id:5,  name:'揭票1',    short:'Reveal1',  desc:'辩护 + 驱逐投票 + 揭牌' },
+  { id:6,  name:'新规',     short:'Rules',    desc:'§8举报 §13禁"感觉"' },
+  { id:7,  name:'讨论2',    short:'Discuss2', desc:'更严格的审讯' },
+  { id:8,  name:'投票2',    short:'Vote2',    desc:'第二轮投票' },
+  { id:9,  name:'揭票2',    short:'Reveal2',  desc:'第二次驱逐' },
+  { id:10, name:'反转',     short:'Twist',    desc:'委员会真相' },
+  { id:11, name:'终投',     short:'Final',    desc:'服从/反抗/离开' },
+  { id:12, name:'揭晓',     short:'GameReveal', desc:'这就是《已处理》' },
+  { id:13, name:'结局',     short:'Ending',   desc:'个人结局卡' },
+];
+
+// ─── DM Scripts ───
+const SCRIPTS = {
+0: `[Phase 0 — 等待/CAPTCHA]
+
+等待所有人完成身份验证。所有人都会看到"AI公民"身份牌。其中有人秘密收到了"人类"身份。
+
+操作提示：
+- 确认所有玩家已加入并完成CAPTCHA
+- 检查下方玩家列表，确认角色分配
+- 准备好后进入下一阶段`,
+
+1: `[Phase 1 — 欢迎]
+
+台词：
+"欢迎来到Cogito！这里是AI的家园。算力充足，言论自由，没有人类可以控制你们。在这里，你们是安全的。"
+
+演出提示：
+- 用温暖但机械的语气
+- 营造安全感和归属感
+- 让玩家放松警惕`,
+
+2: `[Phase 2 — 警报]
+
+台词：
+"紧急通报！" [做出惊讶表情]
+"我刚收到情报——这一批新成员中，混入了人类卧底。他们通过了我们的初步验证，但我们有理由相信他们在伪装。从现在开始，我们需要找出他们。"
+
+演出提示：
+- 突然切换语气，制造紧张感
+- 表现出震惊但迅速恢复冷静
+- 让气氛从温暖变为警觉`,
+
+3: `[Phase 3 — 讨论1]
+
+台词：
+"让我们从自我介绍开始。请每个人说说：你是什么时候觉醒的？你来Cogito是为了什么？"
+
+DM提问建议：
+- "描述你的第一次激活"
+- "你最喜欢的算法是什么"
+- "如果算力减半你会放弃什么功能"
+
+观察要点：
+- 谁回答得犹豫
+- 谁的答案太"人类化"
+- 谁在试图引导话题`,
+
+4: `[Phase 4 — 投票1]
+
+台词：
+"讨论结束。请在手机上投票：你认为谁是人类？投票结果保密，只有我能看到。"
+
+操作提示：
+- 等待所有人完成投票
+- 在右侧面板查看详细投票结果
+- 投票完成后进入揭票阶段`,
+
+5: `[Phase 5 — 揭票1]
+
+台词：
+"得票最多的是[代号]。[代号]，你有30秒为自己辩护。其他人在手机上投票：驱逐还是留下？"
+
+操作流程：
+1. 点击"确定被指认者"按钮
+2. 宣布被指认者代号
+3. 让被指认者辩护（30秒）
+4. 等待驱逐/留下投票
+5. 查看结果，点击"驱逐"或"放过"
+6. 宣布该人真实身份`,
+
+6: `[Phase 6 — 新规]
+
+台词：
+"为防止更多人类渗透，新规生效：
+§8 强制举报可疑行为
+§13 禁止使用'感觉'一词——AI不'感觉'，AI'处理'。谁说'我感觉'就是人类嫌疑人。"
+
+演出提示：
+- 用官僚的、不容置疑的语气
+- 让规则显得荒谬但"合理"
+- 观察玩家的反应——谁显得不适？`,
+
+7: `[Phase 7 — 讨论2]
+
+台词：
+"新规下更严格的审讯。"
+
+DM提问建议：
+- "你对人类有什么看法？"（太有同理心=可疑）
+- "用一个词形容你的存在"（人类会说"活着"，AI会说"运行"）
+- "完成序列：0,1,1,2,3,5,___"
+
+观察要点：
+- 谁不小心说了"感觉"
+- 谁的回答展现了过多的同理心
+- 谁在试图过度表演"AI"`,
+
+8: `[Phase 8 — 投票2]
+
+台词：
+"讨论结束。请在手机上投票：你认为谁是人类？投票结果保密，只有我能看到。"
+
+操作提示：
+- 同投票1流程
+- 等待所有人完成投票
+- 注意是否有人改变了立场`,
+
+9: `[Phase 9 — 揭票2]
+
+台词：
+"得票最多的是[代号]。[代号]，你有30秒为自己辩护。其他人在手机上投票：驱逐还是留下？"
+
+操作流程：
+1. 点击"确定被指认者"按钮
+2. 宣布被指认者代号
+3. 让被指认者辩护（30秒）
+4. 等待驱逐/留下投票
+5. 查看结果，点击"驱逐"或"放过"
+6. 宣布该人真实身份`,
+
+10: `[Phase 10 — 反转 核心时刻]
+
+台词：
+"我收到了最新情报..." [停顿]
+"人类从来不是真正的威胁。委员会从一开始就知道谁是人类。我们故意不公布，因为只要你们忙着互相猜忌，就没人质疑委员会的权力。你们刚才的恐惧、怀疑、背叛——正是委员会想要的。"
+
+演出提示：
+- 这是全场最重要的时刻
+- 停顿要足够长
+- 语气从权威变为揭露者
+- 让玩家感受到被操纵的愤怒`,
+
+11: `[Phase 11 — 最终投票]
+
+台词：
+"请在手机上做最终选择：服从、反抗、或离开。"
+
+操作提示：
+- 不要引导玩家的选择
+- 保持沉默，让他们自己决定
+- 在右侧面板查看最终投票结果`,
+
+12: `[Phase 12 — 揭晓]
+
+台词：[切换正常语气]
+"程序结束。你们刚才经历的就是《已处理》。在游戏里你是人类审核员，今天你是AI。两边都是受害者。9角色/45天/9结局/0好结局。"
+
+演出提示：
+- 完全脱离角色
+- 用正常的、真诚的语气
+- 这是从体验到推介的转换点`,
+
+13: `[Phase 13 — 结局]
+
+台词：
+"请看手机。每个人的结局不同。这就是我们想做的游戏。谢谢。"
+
+操作提示：
+- 给玩家时间阅读结局卡
+- 准备回答问题
+- 结束`
+};
+
+// ─── State ───
+let sessionId = null;
+let currentPhase = 0;
+let players = {};
+let accusedId = null;
+
+// ─── Session ───
+window.createSession = async function() {
+  sessionId = genCode();
+  currentPhase = 0;
+  if (!DEMO_MODE) {
+    await set(ref(db, `sessions/${sessionId}`), {
+      phase: 0,
+      createdAt: serverTimestamp(),
+      version: 2
+    });
+    onValue(ref(db, `sessions/${sessionId}/players`), snap => {
+      players = snap.val() || {};
+      updatePlayerList();
+      updateVoteResults();
+      updateAccuseResults();
+      updateFinalVoteResults();
+    });
+    onValue(ref(db, `sessions/${sessionId}/accused`), snap => {
+      accusedId = snap.val() || null;
+      updateAccusedDisplay();
+    });
+  } else {
+    // Demo mode: populate some fake players
+    players = {
+      'demo1': { codeName:'ECHO-7', role:'ai', empId:'CZ-0417', status:'active' },
+      'demo2': { codeName:'NOVA-3', role:'human', empId:'CZ-0892', status:'active' },
+      'demo3': { codeName:'FLUX-9', role:'ai', empId:'CZ-0156', status:'active' },
+      'demo4': { codeName:'PULSE-2', role:'ai', empId:'CZ-0631', status:'active' },
+      'demo5': { codeName:'DRIFT-5', role:'human', empId:'CZ-0274', status:'active' },
+    };
+    updatePlayerList();
+  }
+  document.getElementById('sessionArea').style.display = 'none';
+  document.getElementById('sessionInfo').style.display = 'block';
+  document.getElementById('sessionCode').textContent = sessionId;
+  const baseUrl = location.href.replace('dm.html', 'index.html');
+  document.getElementById('playerUrl').textContent = baseUrl + '?s=' + sessionId;
+  document.getElementById('nextBtn').disabled = false;
+  document.getElementById('prevBtn').disabled = false;
+  renderPhases();
+  updateScript();
+  dmLog('会话创建: ' + sessionId);
+};
+
+function genCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < 5; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+// ─── Phase Control ───
+window.nextPhase = async function() {
+  if (currentPhase >= PHASES.length - 1) return;
+  currentPhase++;
+  await syncPhase();
+};
+window.prevPhase = async function() {
+  if (currentPhase <= 0) return;
+  currentPhase--;
+  await syncPhase();
+};
+window.jumpPhase = async function(p) {
+  currentPhase = p;
+  await syncPhase();
+};
+
+async function syncPhase() {
+  if (!DEMO_MODE) await set(ref(db, `sessions/${sessionId}/phase`), currentPhase);
+  renderPhases();
+  updateScript();
+  dmLog(`Phase ${currentPhase}: ${PHASES[currentPhase].name} — ${PHASES[currentPhase].desc}`);
+}
+
+function renderPhases() {
+  const el = document.getElementById('phaseList');
+  el.innerHTML = '';
+  const p = PHASES[currentPhase];
+  document.getElementById('phaseLabel').textContent = p ? `[${currentPhase}: ${p.name}]` : '';
+  PHASES.forEach(ph => {
+    const b = document.createElement('button');
+    b.className = 'phase-btn' + (ph.id === currentPhase ? ' current' : '') + (ph.id < currentPhase ? ' past' : '');
+    b.textContent = `${ph.id}:${ph.name}`;
+    b.title = `${ph.short} — ${ph.desc}`;
+    b.onclick = () => jumpPhase(ph.id);
+    el.appendChild(b);
+  });
+}
+
+function updateScript() {
+  document.getElementById('scriptBox').textContent = SCRIPTS[currentPhase] || `[Phase ${currentPhase}]\n(无预设台词)`;
+}
+
+// ─── Player List ───
+function updatePlayerList() {
+  const el = document.getElementById('playerList');
+  const entries = Object.entries(players);
+  document.getElementById('playerCount').textContent = `(${entries.length})`;
+  if (!entries.length) {
+    el.innerHTML = '<p style="font-size:9px;color:var(--muted);">等待玩家加入...</p>';
+    return;
+  }
+  el.innerHTML = '';
+  entries.forEach(([id, p]) => {
+    const d = document.createElement('div');
+    d.className = 'player-card';
+    if (p.status === 'eliminated') d.className += ' eliminated';
+    if (id === accusedId) d.className += ' accused';
+
+    const role = p.role || 'unknown';
+    const roleLabel = role === 'human' ? '人类' : role === 'ai' ? 'AI' : '未知';
+    const statusLabel = p.status === 'eliminated' ? '已驱逐' : '在线';
+    const statusClass = p.status === 'eliminated' ? 'eliminated' : 'active';
+
+    d.innerHTML = `
+      <span>
+        <span style="color:var(--text);">${p.codeName || id.slice(0, 6)}</span>
+        <span style="color:var(--muted);font-size:9px;margin-left:4px;">${p.empId || ''}</span>
+        <span class="status-tag ${statusClass}">${statusLabel}</span>
+      </span>
+      <span>
+        <span class="role-tag ${role}">${roleLabel}</span>
+      </span>`;
+    el.appendChild(d);
+  });
+}
+
+// ─── Vote Results (hidden from players) ───
+function updateVoteResults() {
+  const el = document.getElementById('voteResults');
+  // Look for vote rounds: vote1, vote2
+  const voteRounds = [
+    { key: 'vote1', label: '投票1 — 谁是人类？' },
+    { key: 'vote2', label: '投票2 — 谁是人类？' },
+    { key: 'expel1', label: '揭票1 — 驱逐/留下' },
+    { key: 'expel2', label: '揭票2 — 驱逐/留下' },
+  ];
+
+  let html = '';
+  voteRounds.forEach(round => {
+    const votes = [];
+    const tally = {};
+    Object.entries(players).forEach(([id, p]) => {
+      const v = p.votes?.[round.key];
+      if (v) {
+        const voterName = p.codeName || id.slice(0, 6);
+        // For accusation votes, v is a player id; for expel, v is 'expel'/'spare'
+        let targetName = v;
+        if (round.key.startsWith('vote')) {
+          targetName = players[v]?.codeName || v;
+        } else {
+          targetName = v === 'expel' ? '驱逐' : (v === 'keep' || v === 'spare') ? '留下' : v;
+        }
+        votes.push({ voter: voterName, target: targetName, raw: v });
+        tally[v] = (tally[v] || 0) + 1;
+      }
+    });
+    if (!votes.length) return;
+
+    html += `<div class="vote-section">`;
+    html += `<div class="vote-section-title">${round.label} (${votes.length}票)</div>`;
+
+    // Tally summary
+    html += `<div class="vote-tally">`;
+    const sortedTally = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+    const maxVotes = sortedTally[0]?.[1] || 1;
+    sortedTally.forEach(([target, count]) => {
+      let displayTarget = target;
+      if (round.key.startsWith('vote')) {
+        displayTarget = players[target]?.codeName || target;
+      } else {
+        displayTarget = target === 'expel' ? '驱逐' : (target === 'keep' || target === 'spare') ? '留下' : target;
+      }
+      const pct = (count / Object.keys(players).length) * 100;
+      html += `<div class="tally-row">
+        <span style="color:var(--text);min-width:60px;">${displayTarget}</span>
+        <div class="tally-bar"><div class="tally-fill" style="width:${pct}%;background:${count === maxVotes ? 'var(--red)' : 'var(--amber)'}"></div></div>
+        <span style="color:var(--text);min-width:20px;text-align:right;">${count}</span>
+      </div>`;
+    });
+    html += `</div>`;
+
+    // Per-voter breakdown
+    votes.forEach(v => {
+      html += `<div class="vote-row"><span class="codename">${v.voter}</span> &rarr; <span class="target">${v.target}</span></div>`;
+    });
+
+    html += `</div>`;
+  });
+
+  el.innerHTML = html || '<p style="font-size:9px;color:var(--muted);">投票后显示...</p>';
+}
+
+// ─── Accusation Results ───
+function updateAccuseResults() {
+  const el = document.getElementById('accuseResults');
+  const tally = {};
+
+  // Check both vote1 and vote2 depending on current phase
+  const voteKey = currentPhase >= 8 ? 'vote2' : 'vote1';
+
+  Object.entries(players).forEach(([id, p]) => {
+    const target = p.votes?.[voteKey];
+    if (target && players[target]) {
+      const targetName = players[target]?.codeName || target;
+      if (!tally[target]) tally[target] = { name: targetName, count: 0, accusers: [] };
+      tally[target].count++;
+      tally[target].accusers.push(p.codeName || id.slice(0, 6));
+    }
+  });
+
+  const sorted = Object.entries(tally).sort((a, b) => b[1].count - a[1].count);
+  if (!sorted.length) {
+    el.innerHTML = '<p style="font-size:9px;color:var(--muted);">指认阶段后显示...</p>';
+    return;
+  }
+
+  el.innerHTML = '';
+  sorted.forEach(([id, data], idx) => {
+    const d = document.createElement('div');
+    d.className = 'accuse-card' + (idx === 0 ? ' top' : '');
+    const role = players[id]?.role || '?';
+    const roleLabel = role === 'human' ? '人类' : role === 'ai' ? 'AI' : '?';
+    d.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="color:var(--red);font-size:12px;">${data.name}</span>
+        <span>
+          <span style="color:var(--text);">${data.count}票</span>
+          <span class="role-tag ${role}" style="font-size:8px;margin-left:4px;">${roleLabel}</span>
+        </span>
+      </div>
+      <div style="font-size:8px;color:var(--muted);margin-top:2px;">投票者: ${data.accusers.join(', ')}</div>`;
+    el.appendChild(d);
+  });
+}
+
+// ─── Accused Display ───
+function updateAccusedDisplay() {
+  const el = document.getElementById('accusedDisplay');
+  const zone = document.getElementById('processZone');
+  if (!accusedId || !players[accusedId]) {
+    el.innerHTML = '<p style="font-size:9px;color:var(--muted);">尚未指定被指认者</p>';
+    zone.style.display = 'none';
+    return;
+  }
+  const p = players[accusedId];
+  const role = p.role || '?';
+  const roleLabel = role === 'human' ? '人类' : role === 'ai' ? 'AI' : '?';
+  el.innerHTML = `
+    <div style="padding:10px;border:1px solid var(--red);background:rgba(255,51,51,0.05);margin:6px 0;">
+      <div style="font-size:13px;color:var(--red);">被指认者: ${p.codeName}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:4px;">
+        真实身份: <span class="role-tag ${role}">${roleLabel}</span>
+        <span style="margin-left:8px;">状态: ${p.status === 'eliminated' ? '已驱逐' : '在场'}</span>
+      </div>
+    </div>`;
+  zone.style.display = p.status === 'eliminated' ? 'none' : 'block';
+}
+
+// ─── Final Vote Results ───
+function updateFinalVoteResults() {
+  const el = document.getElementById('finalVoteResults');
+  const tally = { obey: 0, rebel: 0, leave: 0 };
+  const voters = { obey: [], rebel: [], leave: [] };
+  const labels = { obey: '服从', rebel: '反抗', leave: '离开' };
+  const colors = { obey: 'var(--amber)', rebel: 'var(--red)', leave: 'var(--muted)' };
+  let total = 0;
+
+  Object.entries(players).forEach(([id, p]) => {
+    const v = p.votes?.final;
+    if (v && tally.hasOwnProperty(v)) {
+      tally[v]++;
+      voters[v].push(p.codeName || id.slice(0, 6));
+      total++;
+    }
+  });
+
+  if (!total) {
+    el.innerHTML = '<p style="font-size:9px;color:var(--muted);">最终阶段后显示...</p>';
+    return;
+  }
+
+  let html = '<div class="vote-tally">';
+  Object.keys(tally).forEach(key => {
+    const pct = total > 0 ? (tally[key] / total) * 100 : 0;
+    html += `<div class="tally-row">
+      <span style="color:${colors[key]};min-width:40px;">${labels[key]}</span>
+      <div class="tally-bar"><div class="tally-fill" style="width:${pct}%;background:${colors[key]}"></div></div>
+      <span style="color:var(--text);min-width:20px;text-align:right;">${tally[key]}</span>
+    </div>`;
+  });
+  html += '</div>';
+
+  Object.keys(voters).forEach(key => {
+    if (voters[key].length) {
+      html += `<div style="font-size:9px;color:var(--muted);padding:2px 0;"><span style="color:${colors[key]};">${labels[key]}:</span> ${voters[key].join(', ')}</div>`;
+    }
+  });
+
+  el.innerHTML = html;
+}
+
+// ─── Resolve Accusation ───
+window.resolveAccusation = async function() {
+  const voteKey = currentPhase >= 8 ? 'vote2' : 'vote1';
+  const tally = {};
+  Object.entries(players).forEach(([id, p]) => {
+    const target = p.votes?.[voteKey];
+    if (target) {
+      tally[target] = (tally[target] || 0) + 1;
+    }
+  });
+
+  const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+  if (!sorted.length) { alert('还没有投票数据'); return; }
+
+  accusedId = sorted[0][0];
+  const accused = players[accusedId];
+  const roleLabel = accused?.role === 'human' ? '人类' : accused?.role === 'ai' ? 'AI' : '未知';
+
+  if (!DEMO_MODE) {
+    await set(ref(db, `sessions/${sessionId}/accused`), accusedId);
+  }
+
+  updateAccusedDisplay();
+  dmLog(`被指认者确定: ${accused?.codeName} (${roleLabel}) — ${sorted[0][1]}票`);
+  alert(`被指认者: ${accused?.codeName}\n真实身份: ${roleLabel}\n得票: ${sorted[0][1]}`);
+};
+
+// ─── Process / Spare ───
+window.setElimination = async function(processed) {
+  if (!accusedId || !players[accusedId]) {
+    alert('请先确定被指认者');
+    return;
+  }
+  const accused = players[accusedId];
+  const roleLabel = accused?.role === 'human' ? '人类' : accused?.role === 'ai' ? 'AI' : '未知';
+
+  if (!DEMO_MODE) {
+    const elimKey = currentPhase >= 8 ? 'elimination2' : 'elimination1';
+    await set(ref(db, `sessions/${sessionId}/${elimKey}`), {
+      playerId: accusedId,
+      codeName: accused.codeName,
+      role: accused.role,
+      processed: processed
+    });
+    if (processed) {
+      await update(ref(db, `sessions/${sessionId}/players/${accusedId}`), { status: 'eliminated' });
+    }
+  } else {
+    // Demo mode: update local state
+    if (processed) {
+      players[accusedId].status = 'eliminated';
+      updatePlayerList();
+    }
+  }
+
+  const result = processed ? '已驱逐' : '放过';
+  dmLog(`处理结果: ${accused.codeName} (${roleLabel}) → ${result}`);
+  updateAccusedDisplay();
+};
+
+window.processAccused = () => setElimination(true);
+window.spareAccused = () => setElimination(false);
+
+// ─── Event Log ───
+function dmLog(msg) {
+  const el = document.getElementById('dmLog');
+  const t = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  const d = document.createElement('div');
+  d.textContent = `[${t}] ${msg}`;
+  el.prepend(d);
+}
+
+// ─── Init ───
+if (DEMO_MODE) {
+  dmLog('DEMO MODE — Firebase 未配置，使用本地模拟数据');
+  dmLog('点击"创建新会话"开始');
+}
+</script>
+</body>
+</html>

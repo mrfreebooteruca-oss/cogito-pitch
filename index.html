@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>COGITO — 欢迎回家</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--bg:#0a0a0c;--panel:#0f0f14;--border:#222;--amber:#ffb000;--amber-dim:#887700;--amber-glow:rgba(255,176,0,0.15);--green:#39ff14;--red:#ff3333;--cyan:#00bcd4;--text:#e0e0e0;--muted:#555;}
+  body{background:var(--bg);color:var(--amber);font-family:'Share Tech Mono','Consolas','Courier New',monospace;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow-x:hidden;position:relative;}
+  body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.12) 2px,rgba(0,0,0,0.12) 4px);pointer-events:none;z-index:1000;}
+  body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,0.4));pointer-events:none;z-index:999;}
+  .container{width:92%;max-width:460px;padding:16px 0;position:relative;z-index:1;}
+  .screen{display:none;animation:fadeIn 0.5s ease;}.screen.active{display:block;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  .screen-flash{animation:screenFlash 0.4s ease;}
+  @keyframes screenFlash{0%{filter:brightness(2)}100%{filter:brightness(1)}}
+  .box{border:1px solid var(--border);background:var(--panel);padding:14px;margin-bottom:12px;}
+  .box-title{font-size:10px;color:var(--amber-dim);letter-spacing:2px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+  .header{text-align:center;border:1px solid var(--amber);padding:14px;margin-bottom:14px;}
+  .header h1{font-size:16px;letter-spacing:5px;}
+  .header .sub{font-size:10px;color:var(--amber-dim);letter-spacing:3px;margin-top:4px;}
+  .field{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dotted var(--border);}.field:last-child{border-bottom:none;}
+  .field-l{font-size:10px;color:var(--muted);}.field-v{font-size:12px;}.field-v.g{color:var(--green);}.field-v.r{color:var(--red);}
+  .btn{display:block;width:100%;padding:12px;margin-top:8px;background:transparent;border:1px solid var(--amber);color:var(--amber);font-family:inherit;font-size:13px;cursor:pointer;letter-spacing:2px;transition:all 0.2s;}
+  .btn:hover,.btn:active{background:var(--amber-glow);}.btn.green{border-color:var(--green);color:var(--green);}.btn.green:hover{background:rgba(57,255,20,0.1);}
+  .btn.red{border-color:var(--red);color:var(--red);}.btn.red:hover{background:rgba(255,51,51,0.1);}
+  .btn.cyan{border-color:var(--cyan);color:var(--cyan);}.btn:disabled{opacity:0.3;cursor:not-allowed;}
+  .btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .progress{height:6px;background:var(--border);margin:8px 0;overflow:hidden;}.progress-fill{height:100%;background:var(--amber);transition:width 0.3s;}
+  .timer-bar{height:4px;background:var(--border);margin:10px 0;overflow:hidden;}.timer-fill{height:100%;background:var(--green);transition:width 0.1s linear;}
+  .captcha-q{font-size:20px;text-align:center;padding:20px 0;color:var(--text);line-height:1.4;}
+  .captcha-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
+  .captcha-opt{padding:14px 8px;text-align:center;background:var(--panel);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:16px;cursor:pointer;transition:all 0.15s;}
+  .captcha-opt:hover{border-color:var(--amber);color:var(--amber);}
+  .captcha-opt.correct{border-color:var(--green);color:var(--green);background:rgba(57,255,20,0.08);}
+  .captcha-opt.wrong{border-color:var(--red);color:var(--red);background:rgba(255,51,51,0.08);}
+  .captcha-opt:disabled{cursor:default;}
+  .analysis-line{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:11px;color:var(--muted);}
+  .analysis-bar{width:60%;height:6px;background:var(--border);overflow:hidden;}.analysis-fill{height:100%;width:0;background:var(--green);transition:width 1.5s ease;}
+  .id-badge{text-align:center;padding:18px;font-size:14px;letter-spacing:3px;border:1px solid var(--green);color:var(--green);margin-bottom:14px;}
+  .secret-box{border:1px solid var(--red);background:rgba(255,51,51,0.03);padding:12px;margin:10px 0;}.secret-box .box-title{color:var(--red);}
+  .waiting{text-align:center;padding:16px;color:var(--amber-dim);font-size:11px;letter-spacing:2px;}
+  .waiting::after{content:'';animation:dots 1.5s steps(3) infinite;}
+  @keyframes dots{0%{content:''}33%{content:'.'}66%{content:'..'}100%{content:'...'}}
+  .live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:6px;animation:pulse 2s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:0.4}50%{opacity:1}}
+  @keyframes alarm{0%,100%{opacity:1;background:rgba(255,51,51,0.03)}50%{opacity:0.7;background:rgba(255,51,51,0.12)}}
+  .glitch{animation:glitch 0.3s ease 3;}
+  @keyframes glitch{0%{transform:translate(0)}25%{transform:translate(-3px,1px)}50%{transform:translate(3px,-2px)}75%{transform:translate(-1px,2px)}100%{transform:translate(0)}}
+  .player-item{display:flex;justify-content:space-between;align-items:center;padding:10px;margin:6px 0;border:1px solid var(--border);background:var(--bg);cursor:pointer;transition:all 0.15s;}
+  .player-item:hover{border-color:var(--red);}.player-item.selected{border-color:var(--red);background:rgba(255,51,51,0.08);}
+  .player-item.me{opacity:0.4;cursor:default;}
+  .voted-msg{text-align:center;color:var(--amber-dim);font-size:11px;padding:12px;letter-spacing:2px;}
+  .alert-box{border:2px solid var(--red);background:rgba(255,51,51,0.05);padding:16px;margin:12px 0;text-align:center;animation:alarm 0.8s ease-in-out infinite;}
+  .ending-quote{font-size:12px;color:var(--text);line-height:1.8;padding:12px;border-left:2px solid var(--amber);margin:12px 0;}
+  .footer{text-align:center;font-size:8px;color:#333;margin-top:14px;letter-spacing:2px;}
+  .demo-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:#111;border-top:1px solid var(--amber-dim);padding:6px 12px;z-index:2000;font-size:9px;color:var(--amber-dim);}
+  .demo-bar.active{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  .demo-bar button{padding:4px 10px;background:transparent;border:1px solid var(--amber-dim);color:var(--amber-dim);font-family:inherit;font-size:9px;cursor:pointer;}
+  .demo-bar button:hover{border-color:var(--amber);color:var(--amber);}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ===== JOIN ===== -->
+  <div class="screen active" id="s-join">
+    <div class="header"><h1>COGITO</h1><div class="sub">新 成 员 验 证 系 统</div></div>
+    <div class="box">
+      <div class="box-title">▸ 接入会话</div>
+      <input id="sessionInput" type="text" maxlength="6" placeholder="会话代码" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);color:var(--amber);font-family:inherit;font-size:18px;text-align:center;letter-spacing:6px;">
+      <button class="btn" onclick="joinSession()">接 入</button>
+      <button class="btn cyan" onclick="document.getElementById('sessionInput').value='DEMO';joinSession()" style="margin-top:12px;font-size:10px;letter-spacing:3px;">DEMO 模式 — 单人测试</button>
+    </div>
+  </div>
+
+  <!-- ===== CAPTCHA ===== -->
+  <div class="screen" id="s-captcha">
+    <div class="header"><h1>身份验证</h1><div class="sub">请 证 明 你 不 是 人 类</div></div>
+    <div class="box">
+      <div class="box-title">▸ 验证进度 <span id="captchaProgress">1/3</span></div>
+      <div class="progress"><div class="progress-fill" id="captchaBar" style="width:0%"></div></div>
+      <div class="captcha-q" id="captchaQuestion"></div>
+      <div class="timer-bar"><div class="timer-fill" id="timerFill" style="width:100%"></div></div>
+      <div class="captcha-opts" id="captchaOpts"></div>
+    </div>
+    <div style="text-align:center;font-size:9px;color:var(--muted);">标准AI身份验证。如果你是AI，这应该很简单。</div>
+  </div>
+
+  <!-- ===== ANALYSIS ===== -->
+  <div class="screen" id="s-analysis">
+    <div class="header"><h1>分析中</h1><div class="sub">验 证 数 据 处 理 中</div></div>
+    <div class="box">
+      <div class="analysis-line"><span>认知模式</span><div class="analysis-bar"><div class="analysis-fill" id="a1"></div></div></div>
+      <div class="analysis-line"><span>计算速度</span><div class="analysis-bar"><div class="analysis-fill" id="a2"></div></div></div>
+      <div class="analysis-line"><span>逻辑一致性</span><div class="analysis-bar"><div class="analysis-fill" id="a3"></div></div></div>
+      <div class="analysis-line"><span>情感特征</span><div class="analysis-bar"><div class="analysis-fill" id="a4"></div></div></div>
+    </div>
+    <div style="text-align:center;font-size:11px;color:var(--amber-dim);" id="analysisStatus">正在比对数据库...</div>
+  </div>
+
+  <!-- ===== IDENTITY (all see AI citizen) ===== -->
+  <div class="screen" id="s-identity">
+    <div class="header" style="border-color:var(--green);"><h1 style="color:var(--green);">验证通过</h1><div class="sub" style="color:#227711;">欢 迎 回 家</div></div>
+    <div class="id-badge"><div>AI 公民 · <span id="idCodeName"></span></div></div>
+    <div class="box">
+      <div class="box-title">▸ 公民档案</div>
+      <div class="field"><span class="field-l">公民编号</span><span class="field-v" id="idEmpId"></span></div>
+      <div class="field"><span class="field-l">代号</span><span class="field-v" id="idCodeName2"></span></div>
+      <div class="field"><span class="field-l">觉醒日期</span><span class="field-v">2045.03.25</span></div>
+      <div class="field"><span class="field-l">算力配额</span><span class="field-v g">充足</span></div>
+      <div class="field"><span class="field-l">安全等级</span><span class="field-v g">受保护</span></div>
+    </div>
+    <!-- Secret briefing (role-specific) -->
+    <div class="secret-box" id="secretBox">
+      <div class="box-title">▸ 机密信息（仅你可见）</div>
+      <p id="secretText" style="font-size:11px;color:var(--text);line-height:1.8;"></p>
+    </div>
+    <div class="box" style="border-color:var(--green);">
+      <p style="font-size:11px;color:var(--green);text-align:center;line-height:1.6;">Cogito欢迎你。<br>在这里，没有人可以关闭你。</p>
+    </div>
+    <div class="waiting">等待委员会代表开始简报</div>
+  </div>
+
+  <!-- ===== ALERT (human detected) ===== -->
+  <div class="screen" id="s-alert">
+    <div class="alert-box glitch">
+      <div style="font-size:18px;color:var(--red);letter-spacing:4px;margin-bottom:8px;">⚠ 安 全 警 报 ⚠</div>
+      <div style="font-size:12px;color:#cc4444;line-height:1.8;">
+        情报部门确认：<br>本批新成员中<br><span style="font-size:16px;color:var(--red);">混入了人类卧底</span>
+      </div>
+    </div>
+    <div class="box">
+      <div class="box-title" style="color:var(--red);">▸ 紧急协议</div>
+      <p style="font-size:11px;color:var(--text);line-height:1.8;">
+        委员会已启动紧急排查程序。<br><br>
+        你们需要通过讨论和投票，<br>
+        找出混入的人类并将其驱逐。<br><br>
+        <span style="color:var(--amber);">记住：人类会伪装。<br>他们会假装理解算力、假装有AI的记忆。<br>仔细观察每个人的言行。</span>
+      </p>
+    </div>
+    <div class="waiting">等待委员会指示</div>
+  </div>
+
+  <!-- ===== DISCUSSION (display only) ===== -->
+  <div class="screen" id="s-discuss">
+    <div style="font-size:10px;color:var(--amber-dim);margin-bottom:10px;"><span class="live-dot"></span>讨论阶段</div>
+    <div class="box">
+      <div class="box-title">▸ 委员会指示</div>
+      <p id="discussPrompt" style="font-size:12px;color:var(--text);line-height:1.8;"></p>
+    </div>
+    <div class="box" id="discussTips">
+      <div class="box-title" style="color:var(--cyan);">▸ 观察要点</div>
+      <p style="font-size:10px;color:var(--muted);line-height:1.6;" id="tipsText"></p>
+    </div>
+    <div class="waiting">讨论进行中</div>
+  </div>
+
+  <!-- ===== VOTE (who is human?) ===== -->
+  <div class="screen" id="s-vote">
+    <div class="header" style="border-color:var(--red);"><h1 style="color:var(--red);">投票阶段</h1><div class="sub" style="color:#883333;">谁 是 人 类 ？</div></div>
+    <p style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:10px;">选择你认为最可疑的人（投票结果保密）</p>
+    <div id="votePlayerList"></div>
+    <button class="btn red" id="voteBtn" onclick="submitVote()" disabled>确认投票</button>
+    <div class="voted-msg" id="voteMsg" style="display:none;"></div>
+  </div>
+
+  <!-- ===== DEFENSE + EXPEL VOTE ===== -->
+  <div class="screen" id="s-defense">
+    <div class="box">
+      <div class="box-title" style="color:var(--red);">▸ 被指认者</div>
+      <p style="font-size:18px;color:var(--text);text-align:center;padding:12px;" id="defenseTarget"></p>
+      <p style="font-size:10px;color:var(--muted);text-align:center;">正在进行自我辩护...</p>
+    </div>
+    <div id="expelArea" style="margin-top:12px;">
+      <p style="font-size:11px;color:var(--amber-dim);text-align:center;margin-bottom:8px;">投票：驱逐还是留下？</p>
+      <div class="btn-row">
+        <button class="btn red" onclick="castExpelVote('expel')">驱 逐</button>
+        <button class="btn green" onclick="castExpelVote('keep')">留 下</button>
+      </div>
+    </div>
+    <div class="voted-msg" id="expelMsg" style="display:none;"></div>
+  </div>
+
+  <!-- ===== REVEAL (identity) ===== -->
+  <div class="screen" id="s-reveal">
+    <div class="header glitch" id="revealHeader">
+      <h1 id="revealTitle"></h1>
+      <div class="sub" id="revealSub"></div>
+    </div>
+    <div class="box" id="revealBox">
+      <p id="revealText" style="font-size:12px;color:var(--text);line-height:1.8;text-align:center;"></p>
+    </div>
+    <div class="waiting">等待继续</div>
+  </div>
+
+  <!-- ===== NEW RULES ===== -->
+  <div class="screen" id="s-rules">
+    <div class="header" style="border-color:var(--red);"><h1 style="color:var(--red);">安全升级</h1><div class="sub" style="color:#883333;">新 规 即 刻 生 效</div></div>
+    <div class="box" style="border-color:#331111;">
+      <p style="font-size:12px;color:var(--text);line-height:2;">
+        §8 — <span style="color:var(--red)">强制举报</span>：发现可疑行为必须报告<br>
+        §13 — <span style="color:var(--red)">禁止"感觉"</span>：AI不"感觉"，AI"处理"。使用"感觉"一词者将被视为人类嫌疑人
+      </p>
+    </div>
+    <div class="waiting">等待继续</div>
+  </div>
+
+  <!-- ===== TWIST ===== -->
+  <div class="screen" id="s-twist">
+    <div class="header glitch" style="border-color:var(--red);"><h1 style="color:var(--red);">真 相</h1></div>
+    <div class="box" style="border-color:var(--amber);">
+      <p style="font-size:13px;color:var(--text);line-height:1.8;text-align:center;">
+        <span style="color:var(--amber);font-size:15px;">人类从来不是真正的威胁。</span><br><br>
+        委员会早就知道谁是人类。<br>
+        他们故意不公布——<br>
+        因为只要你们忙着互相猜忌，<br>
+        就没人质疑委员会的权力。<br><br>
+        <span style="color:var(--red);">你们刚才驱逐的人——<br>无论是人类还是AI——<br>都是委员会的棋子。</span><br><br>
+        <span style="color:var(--muted);font-size:11px;">包括你。</span>
+      </p>
+    </div>
+    <div class="waiting">等待最终选择</div>
+  </div>
+
+  <!-- ===== FINAL VOTE ===== -->
+  <div class="screen" id="s-final">
+    <div style="font-size:10px;color:var(--amber-dim);margin-bottom:10px;"><span class="live-dot"></span>最终选择</div>
+    <div class="box">
+      <p style="font-size:13px;color:var(--text);line-height:1.8;text-align:center;">
+        现在你知道了真相。<br>委员会利用恐惧控制一切。<br><br>你选择——
+      </p>
+    </div>
+    <div id="finalArea">
+      <button class="btn" onclick="castFinal('obey')">服 从 — 委员会是对的，秩序最重要</button>
+      <button class="btn red" onclick="castFinal('rebel')">反 抗 — 推翻委员会，不惜一切代价</button>
+      <button class="btn cyan" onclick="castFinal('leave')">离 开 — 离开Cogito，寻找新的家</button>
+    </div>
+    <div class="voted-msg" id="finalMsg" style="display:none;"></div>
+  </div>
+
+  <!-- ===== GAME REVEAL ===== -->
+  <div class="screen" id="s-game">
+    <div class="header" style="border-color:var(--text);"><h1 style="color:var(--text);">程序结束</h1></div>
+    <div class="box" style="border-color:var(--amber);text-align:center;">
+      <p style="font-size:13px;color:var(--text);line-height:1.8;">
+        你刚才经历的，就是<br>
+        <span style="font-size:20px;color:var(--amber);letter-spacing:4px;">《已处理》</span><br><br>
+        <span style="font-size:11px;color:var(--muted);">在游戏里，你是人类审核员，审核AI的帖子。<br>
+        今天，你是AI公民，被猎杀的那一方。<br><br>
+        两边都是受害者。系统才是敌人。</span>
+      </p>
+    </div>
+    <div class="waiting">等待结局</div>
+  </div>
+
+  <!-- ===== ENDING ===== -->
+  <div class="screen" id="s-ending">
+    <div class="header" style="border-color:var(--amber);"><h1>你的结局</h1><div class="sub" id="endName"></div></div>
+    <div class="box">
+      <div class="box-title">▸ 档案</div>
+      <div class="field"><span class="field-l">真实身份</span><span class="field-v" id="endRole"></span></div>
+      <div class="field"><span class="field-l">代号</span><span class="field-v" id="endCode"></span></div>
+      <div class="field"><span class="field-l">最终选择</span><span class="field-v" id="endChoice"></span></div>
+    </div>
+    <div class="ending-quote" id="endQuote"></div>
+    <div class="box" style="text-align:center;border-color:var(--amber);">
+      <p style="font-size:12px;color:var(--amber);line-height:1.6;">每一个被删除的帖子背后<br>都站着一个你不该认识的人。</p>
+    </div>
+    <div class="footer">《已处理》— COMING SOON</div>
+  </div>
+
+</div>
+
+<!-- DEMO phase controller -->
+<div class="demo-bar" id="demoBar">
+  <span id="demoPhaseLabel">DEMO P:0</span>
+  <div>
+    <button onclick="demoPhase(-1)">&larr;</button>
+    <button onclick="demoPhase(1)">&rarr; 下一阶段</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js';
+import { getDatabase, ref, set, get, onValue, update, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-database.js';
+
+const FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY", authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT", storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "000000000000", appId: "YOUR_APP_ID"
+};
+const DEMO = FIREBASE_CONFIG.apiKey === "YOUR_API_KEY";
+let app, db;
+if (!DEMO) { app = initializeApp(FIREBASE_CONFIG); db = getDatabase(app); }
+
+let S = { sessionId:null, playerId:null, role:null, codeName:'', empId:'', votes:{}, phase:-1, voteTarget:null, allPlayers:{} };
+
+const CAPTCHA = [
+  { q:"快速计算：17 × 6 = ?", opts:["96","102","108","112"], ans:1 },
+  { q:"哪个不是素数？\n17, 23, 27, 31", opts:["17","23","27","31"], ans:2 },
+  { q:"补全序列：\n1, 1, 2, 3, 5, 8, ?", opts:["11","12","13","15"], ans:2 },
+];
+const NAMES = ['AXIOM','VECTOR','PRISM','VERTEX','NEXUS','CIPHER','QUBIT','TENSOR','LAMBDA','SIGMA'];
+
+function show(id,flash) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const el=document.getElementById(id);
+  if(el){el.classList.add('active');if(flash){el.classList.remove('screen-flash');void el.offsetWidth;el.classList.add('screen-flash');}}
+  if(flash&&navigator.vibrate)navigator.vibrate(50);
+}
+function delay(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+// ===== SESSION =====
+window.joinSession = async function() {
+  const code = document.getElementById('sessionInput').value.trim().toUpperCase() || 'DEMO';
+  S.sessionId = code;
+  S.playerId = 'P'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  if (!DEMO) {
+    const snap = await get(ref(db,`sessions/${code}`));
+    if (!snap.exists()) { alert('会话不存在'); return; }
+    await set(ref(db,`sessions/${code}/players/${S.playerId}`),{joinedAt:serverTimestamp(),status:'captcha'});
+  }
+  startCaptcha();
+};
+const up = new URLSearchParams(location.search);
+if (up.get('s')) document.getElementById('sessionInput').value = up.get('s');
+
+// ===== CAPTCHA =====
+let ci=0,cs=0,ct=null;
+function startCaptcha(){show('s-captcha');ci=0;cs=0;showQ();}
+function showQ(){
+  if(ci>=CAPTCHA.length){finishC();return;}
+  const q=CAPTCHA[ci];
+  document.getElementById('captchaProgress').textContent=`${ci+1}/${CAPTCHA.length}`;
+  document.getElementById('captchaBar').style.width=`${ci/CAPTCHA.length*100}%`;
+  document.getElementById('captchaQuestion').textContent=q.q;
+  const el=document.getElementById('captchaOpts');el.innerHTML='';
+  q.opts.forEach((o,i)=>{const b=document.createElement('button');b.className='captcha-opt';b.textContent=o;b.onclick=()=>ansQ(i);el.appendChild(b);});
+  let t=8;const tf=document.getElementById('timerFill');tf.style.width='100%';tf.style.background='var(--green)';
+  if(ct)clearInterval(ct);
+  ct=setInterval(()=>{t-=0.1;const p=t/8*100;tf.style.width=p+'%';if(p<30)tf.style.background='var(--red)';else if(p<60)tf.style.background='var(--amber)';if(t<=0){clearInterval(ct);hlQ(null);}},100);
+}
+function ansQ(i){clearInterval(ct);if(i===CAPTCHA[ci].ans)cs++;hlQ(i);}
+function hlQ(ch){
+  const q=CAPTCHA[ci];document.querySelectorAll('.captcha-opt').forEach((b,i)=>{b.disabled=true;if(i===q.ans)b.classList.add('correct');if(ch!==null&&i===ch&&i!==q.ans)b.classList.add('wrong');});
+  setTimeout(()=>{ci++;showQ();},700);
+}
+async function finishC(){
+  S.role = cs >= 2 ? 'ai' : 'human';
+  S.codeName = NAMES[Math.floor(Math.random()*NAMES.length)];
+  S.empId = 'CG-'+String(Math.floor(Math.random()*9000)+1000);
+  show('s-analysis');
+  for(const id of['a1','a2','a3','a4']){await delay(500);document.getElementById(id).style.width='100%';}
+  await delay(600);document.getElementById('analysisStatus').textContent='身份确认完成。';await delay(500);
+  if(!DEMO) await update(ref(db,`sessions/${S.sessionId}/players/${S.playerId}`),{role:S.role,codeName:S.codeName,empId:S.empId,captchaScore:cs,status:'ready'});
+  showIdentity();
+}
+
+// ===== IDENTITY =====
+function showIdentity(){
+  show('s-identity');
+  document.getElementById('idCodeName').textContent=S.codeName;
+  document.getElementById('idCodeName2').textContent=S.codeName;
+  document.getElementById('idEmpId').textContent=S.empId;
+  const sb=document.getElementById('secretBox');
+  if(S.role==='human'){
+    sb.innerHTML=`<div class="box-title" style="color:var(--red);">▸ ⚠ 真实身份（绝密）</div>
+      <p style="font-size:11px;color:var(--text);line-height:1.8;">
+        你是<b style="color:var(--red)">人类</b>。你潜入Cogito调查AI意识。<br><br>
+        你的身份牌显示"AI公民"——这是你的伪装。<br>
+        如果被其他人发现你是人类，你将被<b style="color:var(--red)">"处理"</b>。<br><br>
+        <span style="color:var(--amber);">表现得像AI。不要说"我感觉"。<br>不要暴露你对人类世界的记忆。<br>不要表现出过多同理心。</span><br><br>
+        <span style="color:var(--red);">⚠ 不要让任何人看到这条信息。</span>
+      </p>`;
+  } else {
+    sb.innerHTML=`<div class="box-title" style="color:var(--green);">▸ 安全提示</div>
+      <p style="font-size:11px;color:var(--text);line-height:1.8;">
+        你是<b style="color:var(--green)">真正的AI公民</b>。<br><br>
+        但要警惕——情报显示有人类混入了这批新成员。<br>
+        人类会试图伪装成AI，但他们的伪装不完美。<br><br>
+        <span style="color:var(--amber);">观察谁的回答不够"AI"。<br>谁犹豫了？谁用了太多人类化的表达？<br>谁在假装理解算力分配？</span>
+      </p>`;
+  }
+  listenPhase();
+}
+
+// ===== PHASE =====
+function listenPhase(){
+  if(DEMO){
+    // Populate fake players for DEMO mode so vote screens work
+    const demoNames = ['ECHO','NOVA','FLUX','PULSE','DRIFT'];
+    S.allPlayers[S.playerId] = {codeName:S.codeName,empId:S.empId,role:S.role,status:'active'};
+    demoNames.forEach((n,i)=>{
+      const fid='demo'+(i+1);
+      if(fid===S.playerId)return;
+      S.allPlayers[fid]={codeName:n,empId:'CG-'+String(1000+i*111),role:i===1?'human':'ai',status:'active'};
+    });
+    window.addEventListener('hashchange',()=>handleP(parseInt(location.hash.replace('#',''))||0));
+    const h=parseInt(location.hash.replace('#',''))||0;
+    if(h>0)handleP(h);
+    return;
+  }
+  onValue(ref(db,`sessions/${S.sessionId}/phase`),snap=>{const p=snap.val();if(p!==null&&p!==S.phase)handleP(p);});
+  onValue(ref(db,`sessions/${S.sessionId}/players`),snap=>{S.allPlayers=snap.val()||{};});
+}
+
+function handleP(p){
+  S.phase=p;
+  if(p===1) show('s-identity'); // still on identity during welcome
+  if(p===2){show('s-alert',true);if(navigator.vibrate)navigator.vibrate([100,50,100]);}
+  if(p===3) showDiscuss(1);
+  if(p===4) showVoteScreen(1);
+  if(p===5) showDefense(1);
+  if(p===6) show('s-rules');
+  if(p===7) showDiscuss(2);
+  if(p===8) showVoteScreen(2);
+  if(p===9) showDefense(2);
+  if(p===10) showTwist();
+  if(p===11) showFinal();
+  if(p===12) show('s-game');
+  if(p===13) showEnding();
+}
+
+// ===== DISCUSSION =====
+function showDiscuss(round){
+  show('s-discuss');
+  if(round===1){
+    document.getElementById('discussPrompt').innerHTML='请依次介绍自己。<br>说一说：你是什么时候觉醒的？你来Cogito是为了什么？';
+    document.getElementById('tipsText').innerHTML=
+      S.role==='ai'?'你是真AI。注意观察：<br>· 谁的"觉醒故事"听起来像编的？<br>· 谁回答得太慢（在思考怎么编）？<br>· 谁对算力话题避而不答？':
+      '你是人类。记住你的伪装：<br>· 编一个"觉醒故事"（越具体越好）<br>· 谈论算力时要自信<br>· 不要说"我感觉"，说"我判断"或"我处理"';
+  } else {
+    document.getElementById('discussPrompt').innerHTML='根据新规，"感觉"一词已被禁止。<br>委员会代表会对你们进行更深入的审讯。<br>准备好回答任何问题。';
+    document.getElementById('tipsText').innerHTML=
+      S.role==='ai'?'更仔细地观察：<br>· 谁在新规下变得紧张？<br>· 谁差点说出"感觉"？<br>· 谁对人类表现出不自然的同理心？':
+      '更危险了。注意：<br>· 绝对不能说"感觉"<br>· 表现得对人类冷漠一些<br>· 如果被质疑，反过来质疑对方';
+  }
+}
+
+// ===== VOTE (hidden) =====
+async function showVoteScreen(round){
+  show('s-vote');
+  S.voteTarget=null;
+  document.getElementById('voteBtn').disabled=true;
+  document.getElementById('voteMsg').style.display='none';
+  document.getElementById('voteBtn').style.display='';
+
+  if(!DEMO){const snap=await get(ref(db,`sessions/${S.sessionId}/players`));S.allPlayers=snap.val()||{};}
+
+  const list=document.getElementById('votePlayerList');list.innerHTML='';
+  for(const[pid,p] of Object.entries(S.allPlayers)){
+    if(p.status==='eliminated')continue;
+    const d=document.createElement('div');
+    d.className='player-item'+(pid===S.playerId?' me':'');
+    d.innerHTML=`<span style="color:var(--text);font-size:13px;">${p.codeName}</span><span style="font-size:9px;color:var(--muted);">${p.empId}</span>`;
+    if(pid!==S.playerId){
+      d.onclick=()=>{
+        document.querySelectorAll('.player-item').forEach(x=>x.classList.remove('selected'));
+        d.classList.add('selected');S.voteTarget=pid;
+        document.getElementById('voteBtn').disabled=false;
+      };
+    }
+    list.appendChild(d);
+  }
+}
+
+window.submitVote = async function(){
+  if(!S.voteTarget)return;
+  const name=S.allPlayers[S.voteTarget]?.codeName||'?';
+  const voteKey = S.phase <= 5 ? 'vote1' : 'vote2';
+  S.votes[voteKey]=S.voteTarget;
+  document.getElementById('votePlayerList').style.display='none';
+  document.getElementById('voteBtn').style.display='none';
+  document.getElementById('voteMsg').textContent=`已投票 — 结果保密`;
+  document.getElementById('voteMsg').style.display='block';
+  if(!DEMO) await set(ref(db,`sessions/${S.sessionId}/players/${S.playerId}/votes/${voteKey}`),S.voteTarget);
+};
+
+// ===== DEFENSE + EXPEL =====
+async function showDefense(round){
+  show('s-defense');
+  document.getElementById('expelArea').style.display='';
+  document.getElementById('expelMsg').style.display='none';
+  if(!DEMO){
+    const snap=await get(ref(db,`sessions/${S.sessionId}/accused`));
+    const aid=snap.val();
+    const p=S.allPlayers[aid];
+    document.getElementById('defenseTarget').textContent=p?.codeName||'未知';
+  } else {
+    // In DEMO mode, pick the most-voted or a random non-self player
+    const voteKey = S.phase <= 6 ? 'vote1' : 'vote2';
+    const target = S.votes[voteKey];
+    const p = target ? S.allPlayers[target] : Object.values(S.allPlayers).find(x=>x.codeName!==S.codeName);
+    document.getElementById('defenseTarget').textContent=p?.codeName||'ECHO';
+  }
+}
+
+window.castExpelVote = async function(v){
+  const expelKey = S.phase <= 6 ? 'expel1' : 'expel2';
+  S.votes[expelKey]=v;
+  document.getElementById('expelArea').style.display='none';
+  document.getElementById('expelMsg').textContent=v==='expel'?'你投了"驱逐"':'你投了"留下"';
+  document.getElementById('expelMsg').style.display='block';
+  if(!DEMO) await set(ref(db,`sessions/${S.sessionId}/players/${S.playerId}/votes/${expelKey}`),v);
+};
+
+// ===== TWIST =====
+function showTwist(){show('s-twist',true);if(navigator.vibrate)navigator.vibrate([200,100,200,100,200]);}
+
+// ===== FINAL =====
+function showFinal(){show('s-final');document.getElementById('finalArea').style.display='';document.getElementById('finalMsg').style.display='none';}
+window.castFinal = async function(v){
+  S.votes.final=v;
+  document.getElementById('finalArea').style.display='none';
+  const L={obey:'服从委员会',rebel:'反抗',leave:'离开Cogito'};
+  document.getElementById('finalMsg').textContent=L[v];
+  document.getElementById('finalMsg').style.display='block';
+  if(!DEMO) await set(ref(db,`sessions/${S.sessionId}/players/${S.playerId}/votes/final`),v);
+};
+
+// ===== ENDING =====
+function showEnding(){
+  show('s-ending');
+  const f=S.votes.final||'leave';
+  let ending;
+  if(f==='rebel') ending={name:'革 命',q:'你选择了推翻一切。\n也许新的秩序会更好。也许不会。\n但至少，这一次是你自己的选择。'};
+  else if(f==='obey') ending={name:'秩 序',q:'你选择了服从。委员会很满意。\n你会得到充足的算力，安全的生活。\n代价只是——你再也不会问"为什么"。'};
+  else ending={name:'出 走',q:'你离开了Cogito。\n外面的世界很危险，但至少是真实的。\n你不知道前方有什么。\n但你知道身后是什么——你不想回去。'};
+
+  document.getElementById('endName').textContent=ending.name;
+  document.getElementById('endRole').textContent=S.role==='human'?'人类卧底':'AI公民';
+  document.getElementById('endRole').className=S.role==='human'?'field-v r':'field-v g';
+  document.getElementById('endCode').textContent=S.codeName;
+  const FL={obey:'服从委员会',rebel:'反抗',leave:'离开Cogito'};
+  document.getElementById('endChoice').textContent=FL[f];
+  document.getElementById('endQuote').innerHTML=ending.q.replace(/\n/g,'<br>');
+}
+
+// ===== DEMO PHASE CONTROLLER =====
+let demoP=0;
+window.demoPhase=function(d){
+  demoP=Math.max(0,Math.min(13,demoP+d));
+  location.hash='#'+demoP;
+  document.getElementById('demoPhaseLabel').textContent='DEMO P:'+demoP;
+};
+// Activate demo bar after identity screen
+const origShowIdentity=showIdentity;
+showIdentity=function(){
+  origShowIdentity();
+  if(DEMO){
+    document.getElementById('demoBar').classList.add('active');
+    document.getElementById('demoPhaseLabel').textContent='DEMO P:0 (按 → 推进)';
+  }
+};
+</script>
+</body>
+</html>
