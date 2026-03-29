@@ -11,7 +11,7 @@
   body{background:var(--bg);color:var(--amber);font-family:'Share Tech Mono','Consolas','Courier New',monospace;padding:16px;position:relative;}
   body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);pointer-events:none;z-index:1000;}
 
-  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;max-width:1440px;margin:0 auto;}
+  .grid{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:12px;max-width:1600px;margin:0 auto;}
   .col{display:flex;flex-direction:column;gap:12px;}
   .panel{border:1px solid var(--border);background:var(--panel);padding:14px;}
   .panel-title{font-size:10px;color:var(--amber-dim);letter-spacing:2px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
@@ -186,26 +186,11 @@
     </div>
   </div>
 
-  <!-- ===== COLUMN 3: Votes ===== -->
+  <!-- ===== COLUMN 3: Chat + Results ===== -->
   <div class="col">
-    <div class="panel">
-      <div class="panel-title">&#9654; 投票结果（仅DM可见）</div>
-      <div id="voteResults"><p style="font-size:9px;color:var(--muted);">投票后显示...</p></div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-title">&#9654; 任务结果</div>
-      <div id="missionResults"><p style="font-size:9px;color:var(--muted);">任务完成后显示...</p></div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-title">&#9654; 最终投票</div>
-      <div id="finalVoteResults"><p style="font-size:9px;color:var(--muted);">最终阶段后显示...</p></div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-title" style="color:var(--red);">&#9654; 通讯监控（所有私聊）</div>
-      <div id="chatMonitor" style="max-height:300px;overflow-y:auto;font-size:9px;">
+    <div class="panel" style="border-color:#331111;">
+      <div class="panel-title" style="color:var(--red);">&#9654; 通讯监控（所有私聊） <span style="font-size:7px;color:var(--muted);margin-left:8px;">委员会监控一切</span></div>
+      <div id="chatMonitor" style="max-height:500px;min-height:200px;overflow-y:auto;font-size:10px;">
         <p style="color:var(--muted);">玩家开始通讯后显示...</p>
       </div>
     </div>
@@ -462,11 +447,14 @@ function updatePlayerList() {
   updateTeamCheckboxes();
 
   // Auto-assign roles when enough players are ready and roles not yet assigned
-  const readyPlayers = entries.filter(([_,p]) => p.status === 'ready' || p.role);
+  const readyCount = entries.filter(([_,p]) => p.role === 'ai' || p.role === 'human').length;
   const hasRoles = entries.some(([_,p]) => p.specialRole);
-  if (readyPlayers.length >= 3 && !hasRoles && !autoAssigned) {
+  if (readyCount >= 2 && !hasRoles && !autoAssigned) {
     autoAssigned = true;
-    setTimeout(() => assignRoles(), 1000);
+    setTimeout(() => {
+      assignRoles();
+      dmLog('特殊角色已自动分配（可在玩家列表中修改）');
+    }, 1500);
   }
 }
 
