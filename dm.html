@@ -122,6 +122,10 @@
         <p style="font-size:9px;color:var(--muted);">会话代码（告知玩家）：</p>
         <div class="session-code" id="sessionCode"></div>
         <p style="font-size:9px;color:var(--amber);word-break:break-all;" id="playerUrl"></p>
+        <div style="margin-top:10px;" class="btn-row">
+          <button class="btn red" style="font-size:9px;" onclick="endSession()">终止会话</button>
+          <button class="btn" style="font-size:9px;" onclick="newSession()">新建会话</button>
+        </div>
       </div>
     </div>
 
@@ -323,6 +327,7 @@ window.createSession = async function() {
   document.getElementById('sessionArea').style.display = 'none';
   document.getElementById('sessionInfo').style.display = 'block';
   document.getElementById('sessionCode').textContent = sessionId;
+  localStorage.setItem('cogito_dm_session', sessionId);
   const baseUrl = location.href.replace('dm.html', 'index.html');
   document.getElementById('playerUrl').textContent = baseUrl + '?s=' + sessionId;
   document.getElementById('nextBtn').disabled = false;
@@ -331,6 +336,28 @@ window.createSession = async function() {
   updateScript();
   dmLog('会话创建: ' + sessionId);
   startChatMonitor();
+};
+
+window.endSession = function() {
+  if (!confirm('确定终止当前会话？所有玩家将断开连接。')) return;
+  localStorage.removeItem('cogito_dm_session');
+  sessionId = null;
+  currentPhase = 0;
+  players = {};
+  gameState = { round: 1, aiWins: 0, humanWins: 0, rejections: 0, teamSizes: [2, 3, 2] };
+  autoAssigned = false;
+  document.getElementById('sessionArea').style.display = '';
+  document.getElementById('sessionInfo').style.display = 'none';
+  document.getElementById('playerList').innerHTML = '<p style="font-size:9px;color:var(--muted);">等待玩家加入...</p>';
+  document.getElementById('playerCount').textContent = '(0)';
+  dmLog('会话已终止');
+};
+
+window.newSession = async function() {
+  if (!confirm('终止当前会话并创建新会话？')) return;
+  localStorage.removeItem('cogito_dm_session');
+  autoAssigned = false;
+  await createSessionWithProgress();
 };
 
 function genCode() {
@@ -887,10 +914,52 @@ function startChatMonitor() {
 }
 
 // ─── Init ───
-if (DEMO_MODE) {
-  dmLog('DEMO MODE — Firebase 未配置，使用本地模拟数据');
-  dmLog('点击"创建新会话"开始');
-}
+(function restoreDmSession(){
+  const savedSession = localStorage.getItem('cogito_dm_session');
+  if (savedSession && !DEMO_MODE) {
+    // Restore previous session
+    sessionId = savedSession;
+    currentPhase = 0;
+
+    // Re-setup Firebase listeners
+    onValue(ref(db, `sessions/${sessionId}/players`), snap => {
+      players = snap.val() || {};
+      updatePlayerList();
+      updateVoteResults();
+      updateFinalVoteResults();
+    });
+    onValue(ref(db, `sessions/${sessionId}/gameState`), snap => {
+      const gs = snap.val();
+      if (gs) { gameState = gs; updateDmMissionBoard(); }
+    });
+
+    // Get current phase
+    get(ref(db, `sessions/${sessionId}/phase`)).then(snap => {
+      const p = snap.val();
+      if (p !== null) { currentPhase = p; renderPhases(); updateScript(); }
+    });
+
+    // Update UI
+    document.getElementById('sessionArea').style.display = 'none';
+    document.getElementById('sessionInfo').style.display = 'block';
+    document.getElementById('sessionCode').textContent = sessionId;
+    const baseUrl = location.href.replace('dm.html', 'index.html');
+    document.getElementById('playerUrl').textContent = baseUrl + '?s=' + sessionId;
+    document.getElementById('nextBtn').disabled = false;
+    document.getElementById('prevBtn').disabled = false;
+    renderPhases();
+    updateScript();
+    startChatMonitor();
+    dmLog('会话已恢复: ' + sessionId);
+
+    // Hide boot screen
+    const boot = document.getElementById('bootScreen');
+    if (boot) boot.classList.add('done');
+  } else if (DEMO_MODE) {
+    dmLog('DEMO MODE — Firebase 未配置，使用本地模拟数据');
+    dmLog('点击"创建新会话"开始');
+  }
+})();
 </script>
 </body>
 </html>

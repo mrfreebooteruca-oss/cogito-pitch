@@ -592,6 +592,28 @@ window.joinSession = async function() {
   }
   startCaptcha();
 };
+// ===== SESSION RESTORE =====
+(function restoreSession(){
+  const saved = localStorage.getItem('cogito_session');
+  if (!saved) return;
+  try {
+    const data = JSON.parse(saved);
+    if (!data.sessionId || !data.playerId) return;
+    S.sessionId = data.sessionId;
+    S.playerId = data.playerId;
+    S.role = data.role;
+    S.codeName = data.codeName;
+    S.empId = data.empId;
+    S.specialRole = data.specialRole;
+    // Skip join/captcha, go directly to identity
+    setTimeout(() => {
+      showIdentity();
+      // Hide boot screen immediately
+      const boot = document.getElementById('bootScreen');
+      if (boot) boot.classList.add('done');
+    }, 500);
+  } catch(e) { console.error('Session restore failed:', e); }
+})();
 const up = new URLSearchParams(location.search);
 if (up.get('s')) document.getElementById('sessionInput').value = up.get('s');
 
@@ -634,6 +656,15 @@ async function finishC(){
   for(const id of['a1','a2','a3','a4']){await delay(200);document.getElementById(id).style.width='100%';}
   await delay(300);document.getElementById('analysisStatus').textContent='身份确认完成。';await delay(200);
   if(!DEMO) await update(ref(db,`sessions/${S.sessionId}/players/${S.playerId}`),{role:S.role,specialRole:null,codeName:S.codeName,empId:S.empId,captchaScore:cs,status:'ready'});
+  // Persist session to survive page refresh
+  localStorage.setItem('cogito_session', JSON.stringify({
+    sessionId: S.sessionId,
+    playerId: S.playerId,
+    role: S.role,
+    codeName: S.codeName,
+    empId: S.empId,
+    specialRole: S.specialRole
+  }));
   showIdentity();
 }
 
@@ -661,7 +692,15 @@ function showIdentity(){
   if(!DEMO){
     onValue(ref(db,`sessions/${S.sessionId}/players/${S.playerId}/specialRole`),snap=>{
       const sr=snap.val();
-      if(sr) { S.specialRole=sr; updateSecretBriefing(); }
+      if(sr) { S.specialRole=sr; updateSecretBriefing();
+        // Update stored session
+        const stored = localStorage.getItem('cogito_session');
+        if (stored) {
+          const d = JSON.parse(stored);
+          d.specialRole = sr;
+          localStorage.setItem('cogito_session', JSON.stringify(d));
+        }
+      }
     });
   } else {
     // DEMO: randomly assign
@@ -1127,6 +1166,7 @@ window.castFinal = async function(v){
 
 // ===== ENDING =====
 function showEnding(){
+  localStorage.removeItem('cogito_session');
   show('s-ending');
   const f=S.votes.final||'leave';
   let ending;
