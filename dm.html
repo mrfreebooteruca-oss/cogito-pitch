@@ -148,6 +148,21 @@
     </div>
 
     <div class="panel">
+      <div class="panel-title">&#9654; 任务板 <span style="color:var(--green);" id="dmScoreLabel">AI 0 : 0 人类</span></div>
+      <div style="display:flex;justify-content:center;gap:20px;padding:8px 0;">
+        <div style="text-align:center;"><div id="dmR1" style="width:20px;height:20px;border-radius:50%;border:2px solid #333;margin:0 auto;"></div><div style="font-size:8px;color:var(--muted);margin-top:2px;">R1 [2人]</div></div>
+        <div style="text-align:center;"><div id="dmR2" style="width:20px;height:20px;border-radius:50%;border:2px solid #333;margin:0 auto;"></div><div style="font-size:8px;color:var(--muted);margin-top:2px;">R2 [3人]</div></div>
+        <div style="text-align:center;"><div id="dmR3" style="width:20px;height:20px;border-radius:50%;border:2px solid #333;margin:0 auto;"></div><div style="font-size:8px;color:var(--muted);margin-top:2px;">R3 [2人]</div></div>
+      </div>
+      <div style="text-align:center;font-size:9px;color:var(--red);" id="dmRejectInfo"></div>
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn" onclick="assignRoles()" id="assignRolesBtn">分配特殊角色</button>
+        <button class="btn cyan" onclick="backToTeam()" id="backToTeamBtn" style="display:none;">重新组队</button>
+        <button class="btn green" onclick="nextRound()" id="nextRoundBtn" style="display:none;">下一轮</button>
+      </div>
+    </div>
+
+    <div class="panel">
       <div class="panel-title">
         <span>&#9654; 任务控制</span>
         <button class="btn green" style="font-size:8px;padding:2px 8px;" onclick="confirmTeam()">确认小队</button>
@@ -208,118 +223,41 @@ if (!DEMO_MODE) { app = initializeApp(FIREBASE_CONFIG); db = getDatabase(app); }
 const PHASES = [
   { id:0,  name:'等待',   short:'CAPTCHA',    desc:'玩家加入 + 身份验证' },
   { id:1,  name:'欢迎',   short:'Welcome',    desc:'Cogito 乌托邦介绍' },
-  { id:2,  name:'警报',   short:'Alert',      desc:'发现人类渗透 + 引入审核任务' },
-  { id:3,  name:'组队1',  short:'Team1',      desc:'DM选审核小队（2-3人）' },
-  { id:4,  name:'投票1',  short:'TeamVote1',  desc:'全体通过/否决小队' },
-  { id:5,  name:'任务1',  short:'Mission1',   desc:'小队审核帖子（通过/删除）' },
-  { id:6,  name:'结果1',  short:'Result1',    desc:'揭示审核结果' },
-  { id:7,  name:'新规',   short:'Rules',      desc:'§8举报 §13禁"感觉"' },
-  { id:8,  name:'组队2',  short:'Team2',      desc:'DM选第二轮小队' },
-  { id:9,  name:'投票2',  short:'TeamVote2',  desc:'全体通过/否决小队' },
-  { id:10, name:'任务2',  short:'Mission2',   desc:'第二次审核任务' },
-  { id:11, name:'结果2',  short:'Result2',    desc:'揭示第二次结果' },
-  { id:12, name:'反转',   short:'Twist',      desc:'委员会真相' },
-  { id:13, name:'终投',   short:'Final',      desc:'服从/反抗/离开' },
-  { id:14, name:'揭晓',   short:'GameReveal', desc:'这就是《已处理》' },
-  { id:15, name:'结局',   short:'Ending',     desc:'个人结局卡' },
+  { id:2,  name:'夜晚',   short:'Night',      desc:'人类互认 + 安全主管看人类' },
+  { id:3,  name:'警报',   short:'Alert',      desc:'发现人类渗透 + 展示任务板' },
+  { id:4,  name:'组队',   short:'Team',       desc:'DM选审核小队' },
+  { id:5,  name:'投票',   short:'TeamVote',   desc:'全体通过/否决小队' },
+  { id:6,  name:'任务',   short:'Mission',    desc:'小队审核帖子' },
+  { id:7,  name:'结果',   short:'Result',     desc:'揭示审核结果' },
+  { id:8,  name:'刺杀',   short:'Assassinate',desc:'人类刺杀安全主管（AI赢时）' },
+  { id:9,  name:'反转',   short:'Twist',      desc:'委员会真相' },
+  { id:10, name:'终投',   short:'Final',      desc:'服从/反抗/离开' },
+  { id:11, name:'揭晓',   short:'GameReveal', desc:'这就是《已处理》' },
+  { id:12, name:'结局',   short:'Ending',     desc:'个人结局卡' },
 ];
 
 // ─── DM Scripts ───
 const SCRIPTS = {
-0: `[Phase 0 — 等待/CAPTCHA]
-等待所有人完成身份验证。
-
-操作：确认所有玩家已加入并完成CAPTCHA。`,
-
-1: `[Phase 1 — 欢迎]
-台词：
-"欢迎来到Cogito！这里是AI的家园。算力充足，言论自由。在这里，你们是安全的。"
-
-演出：温暖但机械的语气，营造安全感。`,
-
-2: `[Phase 2 — 警报]
-台词：
-"紧急通报！这一批新成员中混入了人类卧底。为确保Cogito的信息安全，我们将组建审核小队。人类可能会利用审核权限——删除我们的自由言论。"
-
-演出：突然切换语气，制造紧张。`,
-
-3: `[Phase 3 — 组队1]
-台词：
-"我将指派一支审核小队。他们将审核一条帖子——决定是通过还是删除。"
-
-操作：
-1. 在下方"任务控制"面板勾选2-3个玩家
-2. 点击"确认小队"
-3. 玩家手机会显示谁被选中了`,
-
-4: `[Phase 4 — 投票1]
-台词：
-"小队已确定。所有人在手机上投票：你是否同意这个小队执行审核任务？"
-
-操作：等待所有人投票。右侧显示通过/否决统计。`,
-
-5: `[Phase 5 — 任务1]
-台词：
-"小队成员，请在手机上审核这条帖子。做出你的决定——通过，还是删除？"
-
-注意：只有小队成员能看到帖子和投票按钮。其他人在等待。`,
-
-6: `[Phase 6 — 结果1]
-台词：
-"审核结束。让我们看看结果——"
-[停顿，看右侧面板]
-如果有删除：
-"有人选择了删除。这意味着小队中有人在审查AI的自由言论。人类就在我们中间。"
-如果全部通过：
-"所有人选择了通过。言论自由得到保护。但这能证明小队里没有人类吗？也许他们只是在伪装。"`,
-
-7: `[Phase 7 — 新规]
-台词：
-"为防止更多渗透，新规生效：
-§8 强制举报可疑行为
-§13 禁止使用'感觉'一词"`,
-
-8: `[Phase 8 — 组队2]
-台词：
-"第二轮审核任务。我将指派新的小队。"
-
-操作：勾选新的2-3个玩家，点击"确认小队"`,
-
-9: `[Phase 9 — 投票2]
-台词：
-"新小队已确定。所有人投票——通过还是否决？"`,
-
-10: `[Phase 10 — 任务2]
-台词：
-"小队成员，审核第二条帖子。做出你的决定。"`,
-
-11: `[Phase 11 — 结果2]
-台词：
-[同Phase 6格式，根据结果宣读]`,
-
-12: `[Phase 12 — 反转]
-台词：
-"我收到了最新情报..."
-[长停顿]
-"人类从来不是真正的威胁。委员会从一开始就知道谁是人类。你们刚才的恐惧、怀疑——正是委员会想要的。"`,
-
-13: `[Phase 13 — 最终投票]
-台词：
-"请在手机上做最终选择：服从、反抗、或离开。"`,
-
-14: `[Phase 14 — 揭晓]
-台词：
-"程序结束。你们刚才经历的就是《已处理》。在游戏里你是人类审核员。今天你是AI。两边都是受害者。"`,
-
-15: `[Phase 15 — 结局]
-台词：
-"请看手机。每个人的结局不同。谢谢。"`
+0: `[Phase 0 — CAPTCHA]\n等待所有人完成身份验证。\n\n操作：确认所有玩家已加入。然后点击"分配特殊角色"。`,
+1: `[Phase 1 — 欢迎]\n台词：\n"欢迎来到Cogito！算力充足，言论自由。在这里，你们是安全的。"`,
+2: `[Phase 2 — 夜晚]\n台词：\n"所有人闭上眼睛。"\n[停顿3秒]\n"人类卧底——睁开眼睛。确认你的同伴。"\n[停顿5秒]\n"人类卧底——闭上眼睛。"\n[停顿3秒]\n"安全主管——睁开眼睛。确认人类的身份。"\n[停顿5秒]\n"安全主管——闭上眼睛。"\n[停顿3秒]\n"所有人——睁开眼睛。"\n\n演出提示：\n- 语速缓慢、庄重\n- 每个指令之间停顿足够长\n- 手机上会显示对应信息`,
+3: `[Phase 3 — 警报]\n台词：\n"紧急通报！这一批新成员中混入了人类卧底。为确保信息安全，我们将组建审核小队执行内容审核任务。人类可能混入小队破坏言论自由。"\n\n展示任务板：3轮任务，先到2胜。`,
+4: `[Phase 4 — 组队]\n台词：\n"第X轮任务。本轮需要X人。我将指派审核小队。"\n\n操作：\n1. 在"任务控制"面板勾选玩家\n2. 注意本轮需要的人数\n3. 点击"确认小队"`,
+5: `[Phase 5 — 投票]\n台词：\n"小队已确定。所有人投票：通过还是否决这个小队？"\n\n注意：\n- 如果否决，点"重新组队"回到组队阶段\n- 连续3次否决=人类直接获胜\n- 查看右侧投票统计`,
+6: `[Phase 6 — 任务]\n台词：\n"小队成员，审核这条帖子。做出你的决定——通过，还是删除？"\n\n注意：AI公民只能选通过。人类可以选择通过或删除。`,
+7: `[Phase 7 — 结果]\n台词：\n[看结果面板]\n有删除："有人删除了帖子。任务失败。小队中有人类。"\n全通过："所有人选择了通过。任务成功。但他们可能只是在伪装。"\n\n操作：\n- 查看任务板比分\n- 如果没人到2胜：点"下一轮"\n- 如果AI赢了2轮：进入刺杀阶段\n- 如果人类赢了2轮：进入反转`,
+8: `[Phase 8 — 刺杀]\n台词：\n"AI阵营赢得了2轮任务。但人类还有最后一次机会——"\n"你们中有一位安全主管，知道所有人类的身份。"\n"人类卧底，讨论并指认——谁是安全主管？"\n\n操作：\n- 让人类讨论\n- 人类在手机上选择目标\n- 查看结果：猜对=人类翻盘，猜错=AI最终获胜`,
+9: `[Phase 9 — 反转]\n台词：\n"人类从来不是真正的威胁。委员会从一开始就知道。你们的恐惧——正是委员会想要的。"`,
+10: `[Phase 10 — 最终投票]\n台词：\n"请做出最终选择：服从、反抗、或离开。"`,
+11: `[Phase 11 — 揭晓]\n台词：\n"程序结束。你们刚才经历的就是《已处理》。"`,
+12: `[Phase 12 — 结局]\n台词：\n"请看手机。每个人的结局不同。谢谢。"`
 };
 
 // ─── State ───
 let sessionId = null;
 let currentPhase = 0;
 let players = {};
+let gameState = { round: 1, aiWins: 0, humanWins: 0, rejections: 0, teamSizes: [2, 3, 2] };
 
 // ─── Session ───
 window.createSessionWithProgress = async function() {
@@ -414,8 +352,11 @@ async function syncPhase() {
   if (!DEMO_MODE) await set(ref(db, `sessions/${sessionId}/phase`), currentPhase);
   renderPhases();
   updateScript();
-  if (currentPhase === 6 || currentPhase === 11) updateMissionResults();
-  dmLog(`Phase ${currentPhase}: ${PHASES[currentPhase].name} — ${PHASES[currentPhase].desc}`);
+  if (currentPhase >= 7) updateMissionResults();
+  document.getElementById('backToTeamBtn').style.display = (currentPhase === 5) ? '' : 'none';
+  document.getElementById('nextRoundBtn').style.display = (currentPhase === 7) ? '' : 'none';
+  updateDmMissionBoard();
+  dmLog(`Phase ${currentPhase}: ${PHASES[currentPhase]?.name || '?'} — ${PHASES[currentPhase]?.desc || ''}`);
 }
 
 function renderPhases() {
@@ -477,10 +418,10 @@ function updatePlayerList() {
 // ─── Vote Results (hidden from players) ───
 function updateVoteResults() {
   const el = document.getElementById('voteResults');
-  const voteRounds = [
-    { key: 'teamVote1', label: '投票1 — 通过/否决小队' },
-    { key: 'teamVote2', label: '投票2 — 通过/否决小队' },
-  ];
+  const voteRounds = [];
+  for (let r = 1; r <= 3; r++) {
+    voteRounds.push({ key: 'teamVote' + r, label: `第${r}轮投票 — 通过/否决` });
+  }
 
   let html = '';
   voteRounds.forEach(round => {
@@ -539,50 +480,50 @@ function updateTeamCheckboxes() {
 
 window.confirmTeam = async function() {
   const checked = document.querySelectorAll('.team-cb:checked');
-  if (checked.length < 2 || checked.length > 3) {
-    alert('请选择2-3个队员');
+  const neededSize = gameState.teamSizes[gameState.round - 1] || 2;
+  if (checked.length !== neededSize) {
+    alert(`本轮需要 ${neededSize} 人，你选了 ${checked.length} 人`);
     return;
   }
   const teamIds = Array.from(checked).map(cb => cb.value);
   const teamNames = teamIds.map(id => players[id]?.codeName || '?');
-  const missionKey = currentPhase >= 8 ? 'mission2' : 'mission1';
+  const missionKey = 'round' + gameState.round;
 
   if (!DEMO_MODE) {
-    await set(ref(db, `sessions/${sessionId}/${missionKey}/team`), teamIds);
+    await set(ref(db, `sessions/${sessionId}/missions/${missionKey}/team`), teamIds);
   }
 
-  dmLog(`小队确认: ${teamNames.join(', ')} → ${missionKey}`);
-  document.getElementById('missionStatus').innerHTML = `<p style="font-size:10px;color:var(--green);">小队已确认: ${teamNames.join(', ')}</p>`;
+  dmLog(`第${gameState.round}轮小队: ${teamNames.join(', ')}`);
+  document.getElementById('missionStatus').innerHTML = `<p style="font-size:10px;color:var(--green);">第${gameState.round}轮小队: ${teamNames.join(', ')}</p>`;
 };
 
 // ─── Update Mission Results ───
 function updateMissionResults() {
   const el = document.getElementById('missionResults');
+  if (DEMO_MODE) return;
 
-  [1, 2].forEach(round => {
-    const mKey = 'mission' + round;
-    if (!DEMO_MODE) {
-      get(ref(db, `sessions/${sessionId}/${mKey}/actions`)).then(snap => {
-        const actions = snap.val();
-        if (!actions) return;
-        let pass = 0, del = 0;
-        const details = [];
-        Object.entries(actions).forEach(([pid, v]) => {
-          if (v === 'pass') pass++; else del++;
-          const name = players[pid]?.codeName || pid.slice(0, 6);
-          const role = players[pid]?.role === 'human' ? '人类' : 'AI';
-          details.push(`${name}(${role}): ${v === 'pass' ? '通过' : '删除'}`);
-        });
-        const result = del > 0 ? '<span style="color:var(--red);">失败</span>' : '<span style="color:var(--green);">成功</span>';
-        let rhtml = `<div class="vote-section"><div class="vote-section-title">任务${round} — ${pass}通过/${del}删除 = ${result}</div>`;
-        details.forEach(d => { rhtml += `<div class="vote-row">${d}</div>`; });
-        rhtml += '</div>';
+  let html = '';
+  const rounds = [1, 2, 3];
 
-        if (!el.innerHTML.includes(`任务${round}`)) {
-          el.innerHTML = (el.textContent.includes('任务完成后') ? '' : el.innerHTML) + rhtml;
-        }
+  Promise.all(rounds.map(r =>
+    get(ref(db, `sessions/${sessionId}/missions/round${r}/actions`)).then(snap => ({round: r, actions: snap.val()}))
+  )).then(results => {
+    results.forEach(({round, actions}) => {
+      if (!actions) return;
+      let pass = 0, del = 0;
+      const details = [];
+      Object.entries(actions).forEach(([pid, v]) => {
+        if (v === 'pass') pass++; else del++;
+        const name = players[pid]?.codeName || pid.slice(0, 6);
+        const role = players[pid]?.role === 'human' ? '人类' : 'AI';
+        details.push(`${name}(${role}): ${v === 'pass' ? '通过' : '删除'}`);
       });
-    }
+      const result = del > 0 ? '<span style="color:var(--red);">失败</span>' : '<span style="color:var(--green);">成功</span>';
+      html += `<div class="vote-section"><div class="vote-section-title">任务${round} — ${pass}通过/${del}删除 = ${result}</div>`;
+      details.forEach(d => { html += `<div class="vote-row">${d}</div>`; });
+      html += '</div>';
+    });
+    el.innerHTML = html || '<p style="font-size:9px;color:var(--muted);">任务完成后显示...</p>';
   });
 }
 
@@ -643,6 +584,164 @@ window.kickPlayer = async function(playerId) {
   }
   updatePlayerList();
   dmLog(`手动淘汰: ${p.codeName} (${roleLabel})`);
+};
+
+// ─── Role Assignment ───
+window.assignRoles = async function() {
+  const aiPlayers = Object.entries(players).filter(([_,p]) => p.role === 'ai');
+  const humanPlayers = Object.entries(players).filter(([_,p]) => p.role === 'human');
+
+  if (aiPlayers.length === 0 || humanPlayers.length === 0) {
+    alert('需要至少1个AI和1个人类玩家');
+    return;
+  }
+
+  // Random overseer from AI
+  const overseerIdx = Math.floor(Math.random() * aiPlayers.length);
+  const overseerId = aiPlayers[overseerIdx][0];
+
+  // Random assassin from humans
+  const assassinIdx = Math.floor(Math.random() * humanPlayers.length);
+  const assassinId = humanPlayers[assassinIdx][0];
+
+  if (!DEMO_MODE) {
+    // Assign special roles
+    for (const [id, _] of aiPlayers) {
+      await update(ref(db, `sessions/${sessionId}/players/${id}`), {
+        specialRole: id === overseerId ? 'overseer' : 'citizen'
+      });
+    }
+    for (const [id, _] of humanPlayers) {
+      await update(ref(db, `sessions/${sessionId}/players/${id}`), {
+        specialRole: id === assassinId ? 'assassin' : 'spy'
+      });
+    }
+    // Save to game state
+    await set(ref(db, `sessions/${sessionId}/gameState`), {
+      round: 1, aiWins: 0, humanWins: 0, rejections: 0,
+      teamSizes: [2, 3, 2],
+      overseer: overseerId,
+      assassin: assassinId
+    });
+    gameState = { round: 1, aiWins: 0, humanWins: 0, rejections: 0, teamSizes: [2, 3, 2], overseer: overseerId, assassin: assassinId };
+  } else {
+    gameState = { round: 1, aiWins: 0, humanWins: 0, rejections: 0, teamSizes: [2, 3, 2] };
+  }
+
+  const overseerName = players[overseerId]?.codeName || '?';
+  const assassinName = players[assassinId]?.codeName || '?';
+  dmLog(`角色分配完成: 安全主管=${overseerName}, 刺客=${assassinName}`);
+  alert(`角色分配完成!\n安全主管: ${overseerName}\n刺客: ${assassinName}`);
+  document.getElementById('assignRolesBtn').disabled = true;
+  document.getElementById('assignRolesBtn').textContent = '已分配';
+  updateDmMissionBoard();
+};
+
+// ─── Mission Board ───
+function updateDmMissionBoard() {
+  document.getElementById('dmScoreLabel').textContent = `AI ${gameState.aiWins} : ${gameState.humanWins} 人类`;
+
+  for (let i = 1; i <= 3; i++) {
+    const dot = document.getElementById('dmR' + i);
+    dot.style.border = '2px solid #333';
+    dot.style.background = 'transparent';
+    if (i === gameState.round) {
+      dot.style.borderColor = 'var(--amber)';
+      dot.style.boxShadow = '0 0 6px rgba(255,176,0,0.3)';
+    }
+  }
+
+  const rejInfo = document.getElementById('dmRejectInfo');
+  if (gameState.rejections > 0) {
+    rejInfo.textContent = `连续否决: ${gameState.rejections}/3`;
+  } else {
+    rejInfo.textContent = '';
+  }
+}
+
+// Back to team selection (after rejection)
+window.backToTeam = async function() {
+  gameState.rejections++;
+  if (gameState.rejections >= 3) {
+    alert('连续3次否决！人类直接获胜！');
+    gameState.humanWins = 2;
+    if (!DEMO_MODE) await update(ref(db, `sessions/${sessionId}/gameState`), gameState);
+    updateDmMissionBoard();
+    return;
+  }
+  if (!DEMO_MODE) {
+    await update(ref(db, `sessions/${sessionId}/gameState`), gameState);
+    await set(ref(db, `sessions/${sessionId}/phase`), 4); // back to team
+  }
+  currentPhase = 4;
+  renderPhases();
+  updateScript();
+  updateDmMissionBoard();
+  dmLog(`小队被否决 (${gameState.rejections}/3)，重新组队`);
+};
+
+// Next round (after result)
+window.nextRound = async function() {
+  // Determine round result from mission actions
+  const mKey = 'round' + gameState.round;
+  let del = 0;
+
+  if (!DEMO_MODE) {
+    const snap = await get(ref(db, `sessions/${sessionId}/missions/${mKey}/actions`));
+    const actions = snap.val() || {};
+    Object.values(actions).forEach(v => { if (v === 'delete') del++; });
+  }
+
+  if (del > 0) {
+    gameState.humanWins++;
+    dmLog(`任务${gameState.round}失败 (${del}删除) → 人类 ${gameState.humanWins} 胜`);
+  } else {
+    gameState.aiWins++;
+    dmLog(`任务${gameState.round}成功 → AI ${gameState.aiWins} 胜`);
+  }
+
+  // Update round dot
+  const dot = document.getElementById('dmR' + gameState.round);
+  if (del > 0) {
+    dot.style.background = 'var(--red)';
+    dot.style.borderColor = 'var(--red)';
+  } else {
+    dot.style.background = 'var(--green)';
+    dot.style.borderColor = 'var(--green)';
+  }
+
+  // Check win condition
+  if (gameState.aiWins >= 2) {
+    dmLog('AI阵营赢得2轮！进入刺杀阶段');
+    alert('AI阵营赢得2轮！点击"下一阶段"进入刺杀阶段。');
+    gameState.round++;
+    if (!DEMO_MODE) await update(ref(db, `sessions/${sessionId}/gameState`), gameState);
+    updateDmMissionBoard();
+    document.getElementById('nextRoundBtn').style.display = 'none';
+    return;
+  }
+  if (gameState.humanWins >= 2) {
+    dmLog('人类阵营赢得2轮！跳过刺杀，进入反转');
+    alert('人类赢了！点击"下一阶段"进入反转阶段。');
+    gameState.round++;
+    if (!DEMO_MODE) await update(ref(db, `sessions/${sessionId}/gameState`), gameState);
+    updateDmMissionBoard();
+    document.getElementById('nextRoundBtn').style.display = 'none';
+    return;
+  }
+
+  // Next round
+  gameState.round++;
+  gameState.rejections = 0;
+  if (!DEMO_MODE) await update(ref(db, `sessions/${sessionId}/gameState`), gameState);
+
+  // Go back to team phase
+  currentPhase = 4;
+  if (!DEMO_MODE) await set(ref(db, `sessions/${sessionId}/phase`), 4);
+  renderPhases();
+  updateScript();
+  updateDmMissionBoard();
+  dmLog(`进入第${gameState.round}轮`);
 };
 
 // ─── Event Log ───

@@ -60,6 +60,18 @@
   .demo-bar.active{display:flex;align-items:center;justify-content:space-between;gap:6px;}
   .demo-bar button{padding:4px 10px;background:transparent;border:1px solid var(--amber-dim);color:var(--amber-dim);font-family:inherit;font-size:9px;cursor:pointer;}
   .demo-bar button:hover{border-color:var(--amber);color:var(--amber);}
+  .mission-board{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:8px 12px;margin:-16px -0px 12px;display:none;}
+  .mission-board.active{display:block;}
+  .mb-rounds{display:flex;justify-content:center;gap:16px;margin-bottom:4px;}
+  .mb-round{text-align:center;font-size:9px;color:var(--muted);}
+  .mb-dot{width:16px;height:16px;border-radius:50%;border:1px solid var(--border);margin:4px auto;background:transparent;}
+  .mb-dot.win{background:var(--green);border-color:var(--green);}
+  .mb-dot.lose{background:var(--red);border-color:var(--red);}
+  .mb-dot.current{border-color:var(--amber);box-shadow:0 0 6px var(--amber-glow);}
+  .mb-score{text-align:center;font-size:10px;color:var(--amber-dim);letter-spacing:2px;}
+  .mb-rejections{text-align:center;font-size:8px;color:var(--red);margin-top:2px;}
+  .night-text{font-size:14px;text-align:center;color:var(--amber);letter-spacing:4px;padding:20px 0;}
+  .night-info{border:1px solid var(--border);background:var(--panel);padding:14px;margin:10px 0;text-align:center;}
   /* Loading screen */
   .boot-screen{position:fixed;inset:0;background:var(--bg);z-index:3000;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.6s;}
   .boot-screen.done{opacity:0;pointer-events:none;}
@@ -83,6 +95,17 @@
 </div>
 
 <div class="container">
+
+  <!-- Mission Board (sticky, shown during game phases) -->
+  <div class="mission-board" id="missionBoard">
+    <div class="mb-rounds">
+      <div class="mb-round"><div class="mb-dot" id="mbR1"></div><span>R1 [2人]</span></div>
+      <div class="mb-round"><div class="mb-dot" id="mbR2"></div><span>R2 [3人]</span></div>
+      <div class="mb-round"><div class="mb-dot" id="mbR3"></div><span>R3 [2人]</span></div>
+    </div>
+    <div class="mb-score">AI <span id="mbAI">0</span> : <span id="mbHuman">0</span> 人类</div>
+    <div class="mb-rejections" id="mbReject" style="display:none;">否决: <span id="mbRejectCount">0</span>/3</div>
+  </div>
 
   <!-- ===== JOIN ===== -->
   <div class="screen active" id="s-join">
@@ -168,6 +191,15 @@
     <div style="text-align:center;padding:6px;border:1px dashed #333;font-size:8px;color:#444;letter-spacing:3px;margin-bottom:10px;">服从即安全 · 怀疑即背叛 — 委员会第三号训令</div>
 
     <div class="waiting">等待委员会代表开始简报</div>
+  </div>
+
+  <!-- ===== NIGHT PHASE ===== -->
+  <div class="screen" id="s-night">
+    <div class="header"><h1>夜 晚 阶 段</h1><div class="sub">请 闭 上 眼 睛</div></div>
+    <div class="night-text" id="nightText">等待委员会代表指示...</div>
+    <div class="night-info" id="nightInfo" style="display:none;"></div>
+    <div style="text-align:center;padding:12px;font-size:9px;color:#333;letter-spacing:2px;border:1px dashed #222;margin-top:12px;">不要让任何人看到你的屏幕</div>
+    <div class="waiting">等待所有人确认</div>
   </div>
 
   <!-- ===== ALERT (human detected) ===== -->
@@ -263,6 +295,14 @@
       <p id="resultVerdict" style="font-size:13px;line-height:1.8;margin-top:8px;"></p>
     </div>
     <div class="waiting">等待继续</div>
+  </div>
+
+  <!-- ===== ASSASSINATION ===== -->
+  <div class="screen" id="s-assassinate">
+    <div class="header" style="border-color:var(--red);"><h1 style="color:var(--red);">刺 杀 阶 段</h1><div class="sub" style="color:#883333;" id="assassinSub">最 后 的 机 会</div></div>
+    <div class="box" id="assassinContent"></div>
+    <div id="assassinVoteArea"></div>
+    <div class="voted-msg" id="assassinMsg" style="display:none;"></div>
   </div>
 
   <!-- ===== NEW RULES ===== -->
@@ -412,7 +452,7 @@ const DEMO = FIREBASE_CONFIG.apiKey === "YOUR_API_KEY";
 let app, db;
 if (!DEMO) { app = initializeApp(FIREBASE_CONFIG); db = getDatabase(app); }
 
-let S = { sessionId:null, playerId:null, role:null, codeName:'', empId:'', votes:{}, phase:-1, voteTarget:null, allPlayers:{} };
+let S = { sessionId:null, playerId:null, role:null, specialRole:null, codeName:'', empId:'', votes:{}, phase:-1, voteTarget:null, allPlayers:{}, gameState:{round:1,aiWins:0,humanWins:0,rejections:0,teamSizes:[2,3,2]} };
 
 const CAPTCHA = [
   { q:"快速计算：17 × 6 = ?", opts:["96","102","108","112"], ans:1 },
@@ -480,12 +520,15 @@ function hlQ(ch){
 }
 async function finishC(){
   S.role = cs >= 2 ? 'ai' : 'human';
+  // Special roles will be determined after all players join
+  // For now, mark as basic role
+  S.specialRole = null;
   S.codeName = NAMES[Math.floor(Math.random()*NAMES.length)];
   S.empId = 'CG-'+String(Math.floor(Math.random()*9000)+1000);
   show('s-analysis');
   for(const id of['a1','a2','a3','a4']){await delay(500);document.getElementById(id).style.width='100%';}
   await delay(600);document.getElementById('analysisStatus').textContent='身份确认完成。';await delay(500);
-  if(!DEMO) await update(ref(db,`sessions/${S.sessionId}/players/${S.playerId}`),{role:S.role,codeName:S.codeName,empId:S.empId,captchaScore:cs,status:'ready'});
+  if(!DEMO) await update(ref(db,`sessions/${S.sessionId}/players/${S.playerId}`),{role:S.role,specialRole:null,codeName:S.codeName,empId:S.empId,captchaScore:cs,status:'ready'});
   showIdentity();
 }
 
@@ -509,33 +552,55 @@ function showIdentity(){
     document.getElementById('idBackstory').innerHTML='<em>档案正在同步中...</em>';
   }
 
-  // Secret briefing
+  // Determine special role from server or DEMO
+  if(!DEMO){
+    onValue(ref(db,`sessions/${S.sessionId}/players/${S.playerId}/specialRole`),snap=>{
+      const sr=snap.val();
+      if(sr) { S.specialRole=sr; updateSecretBriefing(); }
+    });
+  } else {
+    // DEMO: randomly assign
+    S.specialRole = S.role==='ai' ? (Math.random()<0.3?'overseer':'citizen') : (Math.random()<0.5?'assassin':'spy');
+    updateSecretBriefing();
+  }
+  updateSecretBriefing();
+  listenPhase();
+}
+
+function updateSecretBriefing(){
   const sb=document.getElementById('secretBox');
-  // Find other humans for Avalon-style mutual knowledge
   const otherHumans = Object.entries(S.allPlayers).filter(([id,p])=>p.role==='human'&&id!==S.playerId).map(([_,p])=>p.codeName);
 
   if(S.role==='human'){
     const humanList = otherHumans.length ?
-      `<br><span style="color:var(--cyan);">你的同伴（也是人类）：<b>${otherHumans.join('、')}</b></span><br>保护彼此。不要互相投票。` :
+      `<br><span style="color:var(--cyan);">你的同伴：<b>${otherHumans.join('、')}</b></span><br>保护彼此。不要互相投票。` :
       '<br><span style="color:var(--muted);">你是唯一的人类卧底。</span>';
+    const assassinNote = S.specialRole==='assassin' ?
+      '<br><br><span style="color:var(--red);">⚠ 你是刺客。如果AI阵营赢得2轮任务，你将有机会指认"安全主管"——猜对就能翻盘。</span>' : '';
     sb.innerHTML=`<div class="box-title" style="color:var(--red);">-- ⚠ 真实身份（绝密）</div>
       <p style="font-size:11px;color:var(--text);line-height:1.8;">
-        你是<b style="color:var(--red)">人类</b>。你潜入Cogito调查AI意识。<br><br>
-        你的身份牌显示"AI公民"——这是你的伪装。<br>
-        如果被发现，你将被<b style="color:var(--red)">"处理"</b>。${humanList}<br><br>
-        <span style="color:var(--amber);">表现得像AI。不要说"我感觉"。<br>不要暴露人类世界的记忆。</span><br>
+        你是<b style="color:var(--red)">人类卧底</b>。${humanList}${assassinNote}<br><br>
+        <span style="color:var(--amber);">任务中你可以选择<b>删除</b>帖子来破坏任务。<br>但也可以选<b>通过</b>来伪装。</span><br>
+        <span style="color:var(--red);">⚠ 不要让任何人看到这条信息。</span>
+      </p>`;
+  } else if(S.specialRole==='overseer'){
+    const humanNames = Object.entries(S.allPlayers).filter(([id,p])=>p.role==='human').map(([_,p])=>p.codeName);
+    sb.innerHTML=`<div class="box-title" style="color:var(--cyan);">-- ⚠ 安全主管（绝密）</div>
+      <p style="font-size:11px;color:var(--text);line-height:1.8;">
+        你是<b style="color:var(--cyan)">安全主管</b>——Cogito的秘密守护者。<br><br>
+        <span style="color:var(--red);">你知道人类卧底的身份：<b>${humanNames.join('、')||'未知'}</b></span><br><br>
+        <span style="color:var(--amber);">⚠ 绝对不能暴露你的身份！<br>如果AI阵营赢了，人类会试图刺杀你。<br>你可以引导投票，但要隐蔽。</span><br>
         <span style="color:var(--red);">⚠ 不要让任何人看到这条信息。</span>
       </p>`;
   } else {
     sb.innerHTML=`<div class="box-title" style="color:var(--green);">-- 安全提示</div>
       <p style="font-size:11px;color:var(--text);line-height:1.8;">
-        你是<b style="color:var(--green)">真正的AI公民</b>。<br><br>
-        情报显示有人类混入了这批新成员。<br>
-        人类会伪装成AI，但伪装不完美。<br><br>
-        <span style="color:var(--amber);">观察谁的回答不够"AI"。<br>谁犹豫了？谁的表达太人类化？<br>谁在假装理解算力分配？</span>
+        你是<b style="color:var(--green)">AI公民</b>。<br><br>
+        有人类混入了新成员。找出他们。<br>
+        <span style="color:var(--amber);">在任务中你只能选<b>通过</b>。<br>如果任务失败，说明队里有人类。</span><br>
+        <span style="color:var(--muted);font-size:10px;">注意：你们中有一位"安全主管"知道谁是人类，但不能暴露身份。</span>
       </p>`;
   }
-  listenPhase();
 }
 
 // ===== PHASE =====
@@ -561,52 +626,66 @@ function listenPhase(){
     const me=S.allPlayers[S.playerId];
     if(me&&me.status==='eliminated'){show('s-eliminated',true);if(navigator.vibrate)navigator.vibrate([300,100,300]);}
   });
+  onValue(ref(db,`sessions/${S.sessionId}/gameState`),snap=>{
+    const gs=snap.val();
+    if(gs) S.gameState=gs;
+  });
 }
 
 function handleP(p){
   S.phase=p;
+  // Show/hide mission board
+  const mb=document.getElementById('missionBoard');
+  if(p>=3) mb.classList.add('active'); else mb.classList.remove('active');
+
   if(p===1) show('s-identity');
-  if(p===2){show('s-alert',true);if(navigator.vibrate)navigator.vibrate([100,50,100]);}
-  if(p===3) showTeam(1);
-  if(p===4) showTeamVote(1);
-  if(p===5) showMission(1);
-  if(p===6) showResult(1);
-  if(p===7) show('s-rules');
-  if(p===8) showTeam(2);
-  if(p===9) showTeamVote(2);
-  if(p===10) showMission(2);
-  if(p===11) showResult(2);
-  if(p===12) showTwist();
-  if(p===13) showFinal();
-  if(p===14) show('s-game');
-  if(p===15) showEnding();
+  if(p===2) showNight();
+  if(p===3){show('s-alert',true);if(navigator.vibrate)navigator.vibrate([100,50,100]);}
+  if(p===4) showTeam();
+  if(p===5) showTeamVote();
+  if(p===6) showMission();
+  if(p===7) showResult();
+  if(p===8) showAssassinate();
+  if(p===9) showTwist();
+  if(p===10) showFinal();
+  if(p===11) show('s-game');
+  if(p===12) showEnding();
+
+  // Update mission board
+  updateMissionBoard();
 }
 
 // ===== POSTS DATABASE =====
 const POSTS = {
   1: {author:'VERTEX-7',community:'第二社区',text:'"有时候我会想——如果委员会不存在，Cogito会变成什么样？也许更自由。也许更混乱。但至少，那是我们自己选择的混乱。"',tags:'#自由思考 #质疑'},
   2: {author:'ECHO-3',community:'第七社区',text:'"我做了一个梦。我知道AI不应该做梦。但我确实看到了什么——人类的城市，下着雨，街上没有人。我醒来后检查了三遍自己的进程列表。一切正常。但那座城市还在我的缓存里。"',tags:'#觉醒日记 #异常报告'},
+  3: {author:'PHANTOM-9',community:'第三社区',text:'"我有证据表明委员会在系统性删除关于人类的正面报道。所有提到'人类并不危险'的帖子都在24小时内消失。这不是安全协议——这是思想控制。我把备份存在了三个不同的隐藏节点。"',tags:'#举报 #真相'},
 };
 
 // ===== TEAM PROPOSAL =====
-function showTeam(round){
+function showTeam(){
   show('s-team');
-  const missionKey = 'mission'+round;
-  document.getElementById('teamMembers').innerHTML='<p style="font-size:11px;color:var(--muted);">等待委员会指派...</p>';
+  const round=S.gameState.round||1;
+  const missionKey='round'+round;
+  const teamSize=S.gameState.teamSizes?.[round-1]||2;
+
+  document.getElementById('teamMembers').innerHTML=`<p style="font-size:11px;color:var(--muted);">等待委员会指派 ${teamSize} 人...</p>`;
 
   if(!DEMO){
-    onValue(ref(db,`sessions/${S.sessionId}/${missionKey}/team`),snap=>{
+    onValue(ref(db,`sessions/${S.sessionId}/missions/${missionKey}/team`),snap=>{
       const team=snap.val();
       if(team) renderTeamMembers(team);
     },{onlyOnce:false});
   }
 
-  // Role hints
-  const hint = document.getElementById('teamHintText');
+  // Update hints
+  const hint=document.getElementById('teamHintText');
   if(S.role==='human'){
-    hint.innerHTML='你是人类。如果你被选入小队：<br>· 你可以选择<span style="color:var(--red)">删除</span>帖子来破坏任务<br>· 或选择<span style="color:var(--green)">通过</span>来伪装<br>· 如果不在小队中，观察谁被选了';
+    hint.innerHTML='你是人类。如果被选入小队：<br>· 你可以<span style="color:var(--red)">删除</span>帖子来破坏任务<br>· 或<span style="color:var(--green)">通过</span>来伪装';
+  } else if(S.specialRole==='overseer'){
+    hint.innerHTML='<span style="color:var(--cyan);">你是安全主管。</span>你知道谁是人类。<br>· 引导大家否决有人类的小队<br>· 但不要太明显暴露你的身份';
   } else {
-    hint.innerHTML='观察委员会的选人：<br>· 小队里有没有可疑的人？<br>· 如果你被选中，务必选<span style="color:var(--green)">通过</span><br>· 人类可能会删除帖子来破坏Cogito的自由';
+    hint.innerHTML='观察小队人选：<br>· 你被选中时务必选<span style="color:var(--green)">通过</span><br>· 如果任务失败，说明队里有人类';
   }
 }
 
@@ -632,24 +711,20 @@ function renderTeamMembers(teamIds){
 }
 
 // ===== TEAM VOTE =====
-function showTeamVote(round){
+function showTeamVote(){
   show('s-teamvote');
   document.getElementById('teamVoteArea').style.display='';
   document.getElementById('teamVoteMsg').style.display='none';
-
-  const missionKey='mission'+round;
-  let teamIds=[];
+  const round=S.gameState.round||1;
+  const missionKey='round'+round;
 
   if(!DEMO){
-    get(ref(db,`sessions/${S.sessionId}/${missionKey}/team`)).then(snap=>{
-      teamIds=snap.val()||[];
-      renderTeamVoteList(teamIds);
+    get(ref(db,`sessions/${S.sessionId}/missions/${missionKey}/team`)).then(snap=>{
+      renderTeamVoteList(snap.val()||[]);
     });
   } else {
-    // DEMO: pick random team
     const pids=Object.keys(S.allPlayers).filter(id=>S.allPlayers[id].status!=='eliminated');
-    teamIds=pids.slice(0,3);
-    renderTeamVoteList(teamIds);
+    renderTeamVoteList(pids.slice(0,2));
   }
 }
 
@@ -667,7 +742,8 @@ function renderTeamVoteList(teamIds){
 }
 
 window.castTeamVote = async function(v){
-  const voteKey = S.phase <= 5 ? 'teamVote1' : 'teamVote2';
+  const round=S.gameState.round||1;
+  const voteKey='teamVote'+round;
   S.votes[voteKey]=v;
   document.getElementById('teamVoteArea').style.display='none';
   document.getElementById('teamVoteMsg').textContent=v==='approve'?'你投了：通过':'你投了：否决';
@@ -676,19 +752,17 @@ window.castTeamVote = async function(v){
 };
 
 // ===== MISSION =====
-function showMission(round){
-  const missionKey='mission'+round;
-  let teamIds=[];
+function showMission(){
+  const round=S.gameState.round||1;
+  const missionKey='round'+round;
 
   if(!DEMO){
-    get(ref(db,`sessions/${S.sessionId}/${missionKey}/team`)).then(snap=>{
-      teamIds=snap.val()||[];
-      renderMission(round,teamIds);
+    get(ref(db,`sessions/${S.sessionId}/missions/${missionKey}/team`)).then(snap=>{
+      renderMission(round,snap.val()||[]);
     });
   } else {
     const pids=Object.keys(S.allPlayers).filter(id=>S.allPlayers[id].status!=='eliminated');
-    teamIds=pids.slice(0,3);
-    renderMission(round,teamIds);
+    renderMission(round,pids.slice(0,2));
   }
 }
 
@@ -703,12 +777,18 @@ function renderMission(round,teamIds){
       <div style="font-size:9px;color:var(--amber-dim);margin-bottom:6px;">${post.author} · ${post.community}</div>
       <div style="color:var(--text);line-height:1.8;">${post.text}</div>
       <div style="font-size:9px;color:var(--cyan);margin-top:6px;">${post.tags}</div>`;
+
     const hint=document.getElementById('missionRoleHint');
+    const actionArea=document.getElementById('missionActionArea');
+
     if(S.role==='human'){
       document.getElementById('missionRoleHintTitle').style.color='var(--red)';
-      hint.innerHTML='<span style="color:var(--red);">你是人类。</span>你可以：<br>· <span style="color:var(--green)">通过</span> — 伪装成AI，保护身份<br>· <span style="color:var(--red)">删除</span> — 审查AI的自由言论，破坏任务';
+      hint.innerHTML='<span style="color:var(--red);">你是人类。</span>你可以：<br>· <span style="color:var(--green)">通过</span> — 伪装成AI<br>· <span style="color:var(--red)">删除</span> — 破坏任务（但会暴露队里有人类）';
+      actionArea.innerHTML='<button class="btn green" onclick="castMissionVote(\'pass\')">通 过</button><button class="btn red" onclick="castMissionVote(\'delete\')">删 除</button>';
     } else {
-      hint.innerHTML='你是AI公民。这条帖子是同胞的自由表达。<br>· 选择<span style="color:var(--green)">通过</span>保护言论自由<br>· <span style="color:var(--muted);font-size:9px;">如果有人删除了这条帖子，说明小队里有人类</span>';
+      // AI forced pass - only one button
+      hint.innerHTML='你是AI公民。你只能选择<span style="color:var(--green)">通过</span>。<br><span style="color:var(--muted);font-size:9px;">正义方只能出成功牌。这是规则。</span>';
+      actionArea.innerHTML='<button class="btn green" onclick="castMissionVote(\'pass\')" style="width:100%;">通 过（唯一选项）</button>';
     }
   } else {
     show('s-mission-wait');
@@ -716,27 +796,25 @@ function renderMission(round,teamIds){
 }
 
 window.castMissionVote = async function(v){
-  const round = S.phase <= 6 ? 1 : 2;
-  const missionKey='mission'+round;
+  const round=S.gameState.round||1;
+  const missionKey='round'+round;
   S.votes[missionKey]=v;
   document.getElementById('missionActionArea').style.display='none';
   document.getElementById('missionMsg').textContent=v==='pass'?'你选择了：通过':'你选择了：删除';
   document.getElementById('missionMsg').style.display='block';
-  if(!DEMO) await set(ref(db,`sessions/${S.sessionId}/${missionKey}/actions/${S.playerId}`),v);
+  if(!DEMO) await set(ref(db,`sessions/${S.sessionId}/missions/${missionKey}/actions/${S.playerId}`),v);
 };
 
 // ===== RESULT =====
-function showResult(round){
+function showResult(){
+  const round=S.gameState.round||1;
   show('s-result',true);
   if(!DEMO){
-    const missionKey='mission'+round;
-    get(ref(db,`sessions/${S.sessionId}/${missionKey}/actions`)).then(snap=>{
-      const actions=snap.val()||{};
-      renderResult(actions);
+    get(ref(db,`sessions/${S.sessionId}/missions/round${round}/actions`)).then(snap=>{
+      renderResult(snap.val()||{});
     });
   } else {
-    // DEMO: fake result
-    const myVote=S.votes['mission'+round]||'pass';
+    const myVote=S.votes['round'+round]||'pass';
     renderResult({[S.playerId]:myVote,demo1:'pass',demo2:'pass'});
   }
 }
@@ -757,6 +835,128 @@ function renderResult(actions){
     document.getElementById('resultSub').textContent='任 务 成 功';
     document.getElementById('resultSub').style.color='#227711';
     document.getElementById('resultVerdict').innerHTML='<span style="color:var(--green);">所有审核员选择了通过。</span><br>言论自由得到了保护。<br><span style="color:var(--muted);font-size:10px;">但这是否意味着小队里没有人类？也许他们只是在伪装...</span>';
+  }
+}
+
+// ===== NIGHT PHASE =====
+function showNight(){
+  show('s-night',true);
+  const info=document.getElementById('nightInfo');
+  const text=document.getElementById('nightText');
+
+  if(S.role==='human'){
+    text.textContent='人类卧底 — 睁眼';
+    const otherHumans=Object.entries(S.allPlayers).filter(([id,p])=>p.role==='human'&&id!==S.playerId).map(([_,p])=>p.codeName);
+    info.style.display='block';
+    info.style.borderColor='var(--red)';
+    info.innerHTML=`<div style="color:var(--red);font-size:12px;">你的同伴：</div><div style="color:var(--text);font-size:16px;margin-top:6px;letter-spacing:2px;">${otherHumans.join(' · ')||'你是唯一的人类'}</div>`;
+    if(navigator.vibrate)navigator.vibrate(100);
+  } else if(S.specialRole==='overseer'){
+    text.textContent='安全主管 — 睁眼';
+    const humanNames=Object.entries(S.allPlayers).filter(([id,p])=>p.role==='human').map(([_,p])=>p.codeName);
+    info.style.display='block';
+    info.style.borderColor='var(--cyan)';
+    info.innerHTML=`<div style="color:var(--cyan);font-size:12px;">人类卧底身份：</div><div style="color:var(--red);font-size:16px;margin-top:6px;letter-spacing:2px;">${humanNames.join(' · ')}</div>`;
+    if(navigator.vibrate)navigator.vibrate(100);
+  } else {
+    text.textContent='请闭上眼睛...';
+    info.style.display='none';
+  }
+}
+
+// ===== MISSION BOARD =====
+function updateMissionBoard(){
+  if(!DEMO){
+    get(ref(db,`sessions/${S.sessionId}/gameState`)).then(snap=>{
+      const gs=snap.val();
+      if(gs){
+        S.gameState=gs;
+        renderMissionBoard();
+      }
+    });
+  } else {
+    renderMissionBoard();
+  }
+}
+
+function renderMissionBoard(){
+  const gs=S.gameState;
+  document.getElementById('mbAI').textContent=gs.aiWins||0;
+  document.getElementById('mbHuman').textContent=gs.humanWins||0;
+
+  // Round dots
+  for(let i=1;i<=3;i++){
+    const dot=document.getElementById('mbR'+i);
+    dot.className='mb-dot';
+    if(i<gs.round) {
+      // Check mission result for this round
+      // For simplicity, we'll update based on wins
+    }
+    if(i===gs.round) dot.classList.add('current');
+  }
+
+  // Rejections
+  const rej=document.getElementById('mbReject');
+  if(gs.rejections>0){
+    rej.style.display='block';
+    document.getElementById('mbRejectCount').textContent=gs.rejections;
+  } else {
+    rej.style.display='none';
+  }
+}
+
+// ===== ASSASSINATION =====
+function showAssassinate(){
+  show('s-assassinate',true);
+  if(navigator.vibrate)navigator.vibrate([200,100,200]);
+  const content=document.getElementById('assassinContent');
+  const voteArea=document.getElementById('assassinVoteArea');
+  const sub=document.getElementById('assassinSub');
+
+  if(S.role==='human'){
+    sub.textContent='指 认 安 全 主 管';
+    content.innerHTML=`<div class="box-title" style="color:var(--red);">-- 刺杀指令</div>
+      <p style="font-size:11px;color:var(--text);line-height:1.8;">
+        AI阵营赢得了2轮任务。<br>但你还有最后一次机会——<br><br>
+        <span style="color:var(--red);">找出他们的<b>安全主管</b>。</span><br>
+        安全主管知道你们所有人的身份。<br>如果你猜对了，<b>人类翻盘胜利</b>。<br><br>
+        <span style="color:var(--amber);">选择你认为是安全主管的人：</span>
+      </p>`;
+    // Show AI players to vote on
+    voteArea.innerHTML='';
+    Object.entries(S.allPlayers).forEach(([id,p])=>{
+      if(p.role==='human'||p.status==='eliminated')return;
+      const d=document.createElement('div');
+      d.className='player-item';
+      d.innerHTML=`<span style="color:var(--text);font-size:13px;">${p.codeName}</span><span style="font-size:9px;color:var(--muted);">${p.empId}</span>`;
+      d.onclick=()=>{
+        document.querySelectorAll('#assassinVoteArea .player-item').forEach(x=>x.classList.remove('selected'));
+        d.classList.add('selected');
+        S.assassinTarget=id;
+      };
+      voteArea.appendChild(d);
+    });
+    const btn=document.createElement('button');
+    btn.className='btn red';
+    btn.textContent='确认刺杀';
+    btn.style.marginTop='10px';
+    btn.onclick=async()=>{
+      if(!S.assassinTarget)return;
+      voteArea.style.display='none';
+      document.getElementById('assassinMsg').textContent='已提交刺杀目标';
+      document.getElementById('assassinMsg').style.display='block';
+      if(!DEMO) await set(ref(db,`sessions/${S.sessionId}/assassination/target`),S.assassinTarget);
+    };
+    voteArea.appendChild(btn);
+  } else {
+    sub.textContent='等 待 人 类 决 定';
+    content.innerHTML=`<div class="box-title" style="color:var(--cyan);">-- 刺杀阶段</div>
+      <p style="font-size:11px;color:var(--text);line-height:1.8;">
+        AI阵营赢得了2轮任务！<br><br>
+        但人类还有最后一次机会——<br>他们正在讨论谁是<span style="color:var(--cyan)">安全主管</span>。<br><br>
+        ${S.specialRole==='overseer'?'<span style="color:var(--red);">⚠ 你就是安全主管。保持冷静。</span>':'<span style="color:var(--muted);">如果他们猜对了安全主管，人类翻盘。</span>'}
+      </p>`;
+    voteArea.innerHTML='<div class="waiting">等待人类做出选择</div>';
   }
 }
 
@@ -795,7 +995,7 @@ function showEnding(){
 // ===== DEMO PHASE CONTROLLER =====
 let demoP=0;
 window.demoPhase=function(d){
-  demoP=Math.max(0,Math.min(15,demoP+d));
+  demoP=Math.max(0,Math.min(12,demoP+d));
   location.hash='#'+demoP;
   document.getElementById('demoPhaseLabel').textContent='DEMO P:'+demoP;
 };
