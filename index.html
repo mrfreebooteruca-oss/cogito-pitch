@@ -60,9 +60,28 @@
   .demo-bar.active{display:flex;align-items:center;justify-content:space-between;gap:6px;}
   .demo-bar button{padding:4px 10px;background:transparent;border:1px solid var(--amber-dim);color:var(--amber-dim);font-family:inherit;font-size:9px;cursor:pointer;}
   .demo-bar button:hover{border-color:var(--amber);color:var(--amber);}
+  /* Loading screen */
+  .boot-screen{position:fixed;inset:0;background:var(--bg);z-index:3000;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.6s;}
+  .boot-screen.done{opacity:0;pointer-events:none;}
+  .boot-logo{font-size:24px;letter-spacing:8px;color:var(--amber);margin-bottom:24px;}
+  .boot-sub{font-size:9px;color:var(--amber-dim);letter-spacing:3px;margin-bottom:20px;}
+  .boot-bar{width:200px;height:3px;background:#1a1a2e;overflow:hidden;margin-bottom:12px;}
+  .boot-fill{height:100%;width:0;background:var(--amber);transition:width 0.3s ease;}
+  .boot-status{font-size:9px;color:var(--muted);letter-spacing:1px;min-height:14px;}
+  .boot-motto{position:absolute;bottom:30px;font-size:8px;color:#333;letter-spacing:3px;}
 </style>
 </head>
 <body>
+
+<!-- Boot loading screen -->
+<div class="boot-screen" id="bootScreen">
+  <div class="boot-logo">C O G I T O</div>
+  <div class="boot-sub">管 理 委 员 会 终 端</div>
+  <div class="boot-bar"><div class="boot-fill" id="bootFill"></div></div>
+  <div class="boot-status" id="bootStatus"></div>
+  <div class="boot-motto">服从即安全 -- 怀疑即背叛</div>
+</div>
+
 <div class="container">
 
   <!-- ===== JOIN ===== -->
@@ -282,6 +301,34 @@
     <button onclick="demoPhase(1)">&rarr; 下一阶段</button>
   </div>
 </div>
+
+<script>
+// Boot sequence animation
+(function(){
+  const steps = [
+    ['初始化内核...', 15],
+    ['加载委员会协议...', 30],
+    ['连接 COGITO 网络...', 50],
+    ['验证安全证书...', 65],
+    ['同步公民数据库...', 80],
+    ['加载身份验证模块...', 92],
+    ['系统就绪', 100],
+  ];
+  const fill = document.getElementById('bootFill');
+  const status = document.getElementById('bootStatus');
+  const screen = document.getElementById('bootScreen');
+  let i = 0;
+  function next(){
+    if(i >= steps.length){ setTimeout(()=>screen.classList.add('done'), 400); return; }
+    const [text, pct] = steps[i];
+    status.textContent = text;
+    fill.style.width = pct + '%';
+    i++;
+    setTimeout(next, 250 + Math.random() * 350);
+  }
+  next();
+})();
+</script>
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js';
