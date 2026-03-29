@@ -130,6 +130,7 @@
   <div class="top-bar" id="topBar">
     <div><span class="live-dot"></span><span class="player-count" id="onlineCount">0 人在线</span></div>
     <div class="top-actions">
+      <button class="top-btn" onclick="renameSelf()">改名</button>
       <button class="top-btn" onclick="newPlayerSession()">新会话</button>
       <button class="top-btn exit" onclick="exitSession()">退出</button>
     </div>
@@ -152,6 +153,7 @@
     <div class="box">
       <div class="box-title">▸ 接入会话</div>
       <input id="sessionInput" type="text" maxlength="6" placeholder="会话代码" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);color:var(--amber);font-family:inherit;font-size:18px;text-align:center;letter-spacing:6px;">
+      <input id="playerNameInput" type="text" maxlength="12" placeholder="你的代号（可选）" style="width:100%;padding:10px;margin-top:8px;background:var(--bg);border:1px solid var(--border);color:var(--green);font-family:inherit;font-size:14px;text-align:center;letter-spacing:2px;">
       <button class="btn" id="joinBtn" onclick="joinWithProgress()">接 入</button>
       <div id="joinProgress" style="display:none;">
         <div style="height:3px;background:#1a1a2e;margin:12px 0;overflow:hidden;"><div id="joinFill" style="height:100%;width:0;background:var(--amber);transition:width 0.3s;"></div></div>
@@ -328,6 +330,14 @@
       <button class="btn red" onclick="castTeamVote('reject')">否 决</button>
     </div>
     <div class="voted-msg" id="teamVoteMsg" style="display:none;"></div>
+    <div id="voteResultDisplay" style="display:none;text-align:center;padding:12px;margin-top:8px;border:1px solid var(--border);">
+      <div style="font-size:10px;color:var(--amber-dim);margin-bottom:6px;">投票结果</div>
+      <div style="display:flex;justify-content:center;gap:20px;">
+        <div><span style="font-size:20px;color:var(--green);" id="voteApproveCount">0</span><div style="font-size:8px;color:var(--muted);">通过</div></div>
+        <div><span style="font-size:20px;color:var(--red);" id="voteRejectCount">0</span><div style="font-size:8px;color:var(--muted);">否决</div></div>
+      </div>
+      <div id="voteVerdict" style="font-size:11px;margin-top:8px;"></div>
+    </div>
   </div>
 
   <!-- ===== MISSION (team members only) ===== -->
@@ -678,7 +688,8 @@ async function finishC(){
     usedNames=Object.values(existing).map(p=>p.codeName).filter(Boolean);
   }
   const available=NAMES.filter(n=>!usedNames.includes(n));
-  S.codeName = available.length>0 ? available[Math.floor(Math.random()*available.length)] : NAMES[Math.floor(Math.random()*NAMES.length)]+'-'+Math.floor(Math.random()*9);
+  const customName = document.getElementById('playerNameInput')?.value.trim();
+  S.codeName = customName || (available.length>0 ? available[Math.floor(Math.random()*available.length)] : NAMES[Math.floor(Math.random()*NAMES.length)]+'-'+Math.floor(Math.random()*9));
   S.empId = 'CG-'+String(Math.floor(Math.random()*9000)+1000);
   show('s-analysis');
   for(const id of['a1','a2','a3','a4']){await delay(200);document.getElementById(id).style.width='100%';}
@@ -976,9 +987,11 @@ function showTeamVote(){
   show('s-teamvote');
   document.getElementById('teamVoteArea').style.display='';
   document.getElementById('teamVoteMsg').style.display='none';
+  document.getElementById('voteResultDisplay').style.display='none';
   const round=S.gameState.round||1;
   const missionKey='round'+round;
 
+  // Show proposed team
   if(!DEMO){
     get(ref(db,`sessions/${S.sessionId}/missions/${missionKey}/team`)).then(snap=>{
       renderTeamVoteList(snap.val()||[]);
@@ -986,6 +999,16 @@ function showTeamVote(){
   } else {
     const pids=Object.keys(S.allPlayers).filter(id=>S.allPlayers[id].status!=='eliminated');
     renderTeamVoteList(pids.slice(0,2));
+  }
+
+  // Listen for vote results to auto-resolve
+  if(!DEMO){
+    onValue(ref(db,`sessions/${S.sessionId}/teamVoteResults/round${round}_${S.gameState.captainIdx||0}`), snap => {
+      const result = snap.val();
+      if (result && result.resolved) {
+        showVoteResult(result);
+      }
+    });
   }
 }
 
@@ -1002,9 +1025,25 @@ function renderTeamVoteList(teamIds){
   });
 }
 
+function showVoteResult(result) {
+  document.getElementById('teamVoteArea').style.display = 'none';
+  document.getElementById('teamVoteMsg').style.display = 'none';
+  const display = document.getElementById('voteResultDisplay');
+  display.style.display = 'block';
+  document.getElementById('voteApproveCount').textContent = result.approve || 0;
+  document.getElementById('voteRejectCount').textContent = result.reject || 0;
+  const verdict = document.getElementById('voteVerdict');
+  if (result.passed) {
+    verdict.innerHTML = '<span style="color:var(--green);">小队通过！准备执行任务。</span>';
+  } else {
+    verdict.innerHTML = '<span style="color:var(--red);">小队被否决。队长轮转到下一人。</span>';
+  }
+}
+
 window.castTeamVote = async function(v){
   const round=S.gameState.round||1;
-  const voteKey='teamVote'+round;
+  const captainIdx=S.gameState.captainIdx||0;
+  const voteKey='teamVote_r'+round+'_c'+captainIdx;
   S.votes[voteKey]=v;
   document.getElementById('teamVoteArea').style.display='none';
   document.getElementById('teamVoteMsg').textContent=v==='approve'?'你投了：通过':'你投了：否决';
@@ -1396,6 +1435,21 @@ function listenIcChats() {
     });
   });
 }
+
+window.renameSelf = async function() {
+  const newName = prompt('输入新代号（最多12字）:', S.codeName);
+  if (!newName || !newName.trim() || newName.trim() === S.codeName) return;
+  S.codeName = newName.trim().slice(0, 12);
+  if (!DEMO) await update(ref(db, `sessions/${S.sessionId}/players/${S.playerId}`), { codeName: S.codeName });
+  // Update displayed name
+  const el = document.getElementById('idCodeName');
+  if (el) el.textContent = S.codeName;
+  const el2 = document.getElementById('idCodeName2');
+  if (el2) el2.textContent = S.codeName;
+  // Update localStorage
+  const stored = localStorage.getItem('cogito_session');
+  if (stored) { const d = JSON.parse(stored); d.codeName = S.codeName; localStorage.setItem('cogito_session', JSON.stringify(d)); }
+};
 
 window.exitSession = function() {
   if (!confirm('确定退出当前会话？')) return;
