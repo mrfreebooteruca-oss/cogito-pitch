@@ -677,6 +677,13 @@ window.joinSession = async function() {
 })();
 const up = new URLSearchParams(location.search);
 if (up.get('s')) document.getElementById('sessionInput').value = up.get('s');
+// Auto-enter spectator mode if ?spectator=1
+if (up.get('spectator') === '1' && up.get('s')) {
+  setTimeout(() => {
+    document.getElementById('sessionInput').value = up.get('s');
+    joinAsSpectator();
+  }, 500);
+}
 
 // ===== CAPTCHA =====
 let ci=0,cs=0,ct=null;

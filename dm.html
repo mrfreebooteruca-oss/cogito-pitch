@@ -207,6 +207,16 @@
         <p style="color:var(--muted);">玩家开始通讯后显示...</p>
       </div>
     </div>
+
+    <div class="panel">
+      <div class="panel-title">
+        <span>&#9654; 玩家视角预览</span>
+        <button class="btn" style="font-size:7px;padding:2px 6px;" onclick="loadPlayerPreview()">加载预览</button>
+      </div>
+      <div id="playerPreviewArea" style="text-align:center;">
+        <p style="font-size:9px;color:var(--muted);">点击"加载预览"以旁观者模式查看玩家页面</p>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1156,6 +1166,19 @@ function dmLog(msg) {
 }
 
 // ─── Chat Monitoring ───
+// ─── Player Preview (iframe in spectator mode) ───
+window.loadPlayerPreview = function() {
+  if (!sessionId) { alert('请先创建会话'); return; }
+  const area = document.getElementById('playerPreviewArea');
+  const baseUrl = location.href.replace('dm.html', 'index.html');
+  // Build URL that auto-enters spectator mode
+  area.innerHTML = `
+    <iframe src="${baseUrl}?s=${sessionId}&spectator=1"
+      style="width:100%;height:700px;border:1px solid var(--border);border-radius:4px;background:var(--bg);"
+      allow="autoplay"></iframe>
+    <div style="font-size:7px;color:var(--muted);margin-top:4px;">旁观者模式 · 实时同步 · 不计入玩家</div>`;
+};
+
 function startChatMonitor() {
   if (DEMO_MODE || !sessionId) return;
   onValue(ref(db, `sessions/${sessionId}/chat`), snap => {
