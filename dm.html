@@ -154,9 +154,9 @@
     <div class="panel">
       <div class="panel-title">&#9654; 任务板 <span style="color:var(--green);" id="dmScoreLabel">AI 0 : 0 人类</span></div>
       <div style="display:flex;justify-content:center;gap:20px;padding:8px 0;">
-        <div style="text-align:center;"><div id="dmR1" style="width:20px;height:20px;border-radius:50%;border:2px solid #333;margin:0 auto;"></div><div style="font-size:8px;color:var(--muted);margin-top:2px;">R1 [2人]</div></div>
-        <div style="text-align:center;"><div id="dmR2" style="width:20px;height:20px;border-radius:50%;border:2px solid #333;margin:0 auto;"></div><div style="font-size:8px;color:var(--muted);margin-top:2px;">R2 [3人]</div></div>
-        <div style="text-align:center;"><div id="dmR3" style="width:20px;height:20px;border-radius:50%;border:2px solid #333;margin:0 auto;"></div><div style="font-size:8px;color:var(--muted);margin-top:2px;">R3 [2人]</div></div>
+        <div style="text-align:center;"><div id="dmR1" style="width:20px;height:20px;border-radius:50%;border:2px solid #333;margin:0 auto;"></div><div style="font-size:8px;color:var(--muted);margin-top:2px;">R1 [<span id="dmTS1">2</span>人]</div></div>
+        <div style="text-align:center;"><div id="dmR2" style="width:20px;height:20px;border-radius:50%;border:2px solid #333;margin:0 auto;"></div><div style="font-size:8px;color:var(--muted);margin-top:2px;">R2 [<span id="dmTS2">3</span>人]</div></div>
+        <div style="text-align:center;"><div id="dmR3" style="width:20px;height:20px;border-radius:50%;border:2px solid #333;margin:0 auto;"></div><div style="font-size:8px;color:var(--muted);margin-top:2px;">R3 [<span id="dmTS3">2</span>人]</div></div>
       </div>
       <div style="text-align:center;font-size:9px;color:var(--red);" id="dmRejectInfo"></div>
       <div class="btn-row" style="margin-top:8px;">
@@ -727,8 +727,12 @@ window.assignRoles = async function() {
   const assassinIdx = Math.floor(Math.random() * humanPlayers.length);
   const assassinId = humanPlayers[assassinIdx][0];
 
-  // Dynamic team sizes based on player count
-  const ts = total <= 5 ? [2,2,3] : total <= 7 ? [2,3,3] : [3,3,4];
+  // Avalon standard team sizes (3 rounds)
+  const TEAM_TABLE = {
+    3: [2,2,2], 4: [2,2,3], 5: [2,3,2], 6: [2,3,4],
+    7: [2,3,3], 8: [3,4,4], 9: [3,4,4], 10: [3,4,4]
+  };
+  const ts = TEAM_TABLE[Math.min(Math.max(total, 3), 10)] || [2,3,3];
 
   if (!DEMO_MODE) {
     // Write balanced roles + special roles
@@ -798,6 +802,13 @@ function updateDmMissionBoard() {
   if (dmCaptainEl) dmCaptainEl.textContent = captainP?.codeName || '——';
   const dmRoundEl = document.getElementById('dmCaptainRound');
   if (dmRoundEl) dmRoundEl.textContent = gameState.round || 1;
+
+  // Update team size labels
+  const ts = gameState.teamSizes || [2,3,2];
+  for (let i = 0; i < 3; i++) {
+    const el = document.getElementById('dmTS' + (i+1));
+    if (el) el.textContent = ts[i];
+  }
 }
 
 window.resolveTeamVote = async function() {

@@ -139,9 +139,9 @@
   <!-- Mission Board (sticky, shown during game phases) -->
   <div class="mission-board" id="missionBoard">
     <div class="mb-rounds">
-      <div class="mb-round"><div class="mb-dot" id="mbR1"></div><span>R1 [2人]</span></div>
-      <div class="mb-round"><div class="mb-dot" id="mbR2"></div><span>R2 [3人]</span></div>
-      <div class="mb-round"><div class="mb-dot" id="mbR3"></div><span>R3 [2人]</span></div>
+      <div class="mb-round"><div class="mb-dot" id="mbR1"></div><span>R1 [<span id="mbTS1">2</span>人]</span></div>
+      <div class="mb-round"><div class="mb-dot" id="mbR2"></div><span>R2 [<span id="mbTS2">3</span>人]</span></div>
+      <div class="mb-round"><div class="mb-dot" id="mbR3"></div><span>R3 [<span id="mbTS3">2</span>人]</span></div>
     </div>
     <div class="mb-score">AI <span id="mbAI">0</span> : <span id="mbHuman">0</span> 人类</div>
     <div class="mb-rejections" id="mbReject" style="display:none;">否决: <span id="mbRejectCount">0</span>/3</div>
@@ -1246,6 +1246,12 @@ function renderMissionBoard(){
     document.getElementById('mbRejectCount').textContent=gs.rejections;
   } else {
     rej.style.display='none';
+  }
+
+  const ts = gs.teamSizes || [2,3,2];
+  for (let i = 0; i < 3; i++) {
+    const el = document.getElementById('mbTS' + (i+1));
+    if (el) el.textContent = ts[i];
   }
 }
 
