@@ -140,8 +140,12 @@
     <div class="box">
       <div class="box-title">▸ 接入会话</div>
       <input id="sessionInput" type="text" maxlength="6" placeholder="会话代码" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);color:var(--amber);font-family:inherit;font-size:18px;text-align:center;letter-spacing:6px;">
-      <button class="btn" onclick="joinSession().catch(e=>{console.error(e);alert('连接失败: '+e.message)})">接 入</button>
-      <button class="btn cyan" onclick="document.getElementById('sessionInput').value='DEMO';joinSession()" style="margin-top:12px;font-size:10px;letter-spacing:3px;">DEMO 模式 — 单人测试</button>
+      <button class="btn" id="joinBtn" onclick="joinWithProgress()">接 入</button>
+      <div id="joinProgress" style="display:none;">
+        <div style="height:3px;background:#1a1a2e;margin:12px 0;overflow:hidden;"><div id="joinFill" style="height:100%;width:0;background:var(--amber);transition:width 0.3s;"></div></div>
+        <div id="joinStatus" style="font-size:9px;color:var(--muted);text-align:center;letter-spacing:1px;"></div>
+      </div>
+      <button class="btn cyan" onclick="document.getElementById('sessionInput').value='DEMO';joinWithProgress()" style="margin-top:12px;font-size:10px;letter-spacing:3px;">DEMO 模式 — 单人测试</button>
     </div>
   </div>
 
@@ -502,11 +506,33 @@ if (!DEMO) { app = initializeApp(FIREBASE_CONFIG); db = getDatabase(app); }
 
 let S = { sessionId:null, playerId:null, role:null, specialRole:null, codeName:'', empId:'', votes:{}, phase:-1, voteTarget:null, allPlayers:{}, gameState:{round:1,aiWins:0,humanWins:0,rejections:0,teamSizes:[2,3,2]} };
 
-const CAPTCHA = [
+const CAPTCHA_BANK = [
+  // 数学计算
   { q:"快速计算：17 × 6 = ?", opts:["96","102","108","112"], ans:1 },
+  { q:"计算：256 ÷ 16 = ?", opts:["14","16","18","20"], ans:1 },
+  { q:"计算：13² = ?", opts:["156","163","169","171"], ans:2 },
+  { q:"0.1 + 0.2 = ?", opts:["0.3","0.30000000000000004","0.29999","0.31"], ans:1 },
+  // 逻辑推理
   { q:"哪个不是素数？\n17, 23, 27, 31", opts:["17","23","27","31"], ans:2 },
+  { q:"二进制 1010 等于十进制的？", opts:["8","10","12","14"], ans:1 },
+  { q:"NOT(True AND False) = ?", opts:["True","False","Null","Error"], ans:0 },
+  { q:"0xFF 等于十进制的？", opts:["127","255","256","512"], ans:1 },
+  // 序列补全
   { q:"补全序列：\n1, 1, 2, 3, 5, 8, ?", opts:["11","12","13","15"], ans:2 },
+  { q:"补全序列：\n2, 6, 18, 54, ?", opts:["108","162","216","148"], ans:1 },
+  { q:"补全序列：\n1, 4, 9, 16, 25, ?", opts:["30","36","42","49"], ans:1 },
+  // AI知识
+  { q:"哪个是激活函数？", opts:["HTTP","ReLU","TCP","SQL"], ans:1 },
+  { q:"神经网络的基本单元是？", opts:["像素","神经元","字节","线程"], ans:1 },
+  { q:"NLP 代表什么？", opts:["网络层协议","自然语言处理","非线性编程","节点链接程序"], ans:1 },
+  { q:"哪个不是编程语言？", opts:["Rust","Julia","Cobalt","Python"], ans:2 },
+  // 模式识别
+  { q:"下一个字母：\nA, C, E, G, ?", opts:["H","I","J","K"], ans:1 },
+  { q:"RGB(255, 0, 0) 是什么颜色？", opts:["蓝色","绿色","红色","白色"], ans:2 },
+  { q:"HTTP 状态码 404 表示？", opts:["成功","重定向","未找到","服务器错误"], ans:2 },
 ];
+// Randomly pick 3 questions each game
+const CAPTCHA = CAPTCHA_BANK.sort(()=>Math.random()-0.5).slice(0,3);
 const NAMES = ['AXIOM','VECTOR','PRISM','VERTEX','NEXUS','CIPHER','QUBIT','TENSOR','LAMBDA','SIGMA'];
 
 const BACKSTORIES = {
@@ -532,6 +558,19 @@ function show(id,flash) {
 function delay(ms) { return new Promise(r=>setTimeout(r,ms)); }
 
 // ===== SESSION =====
+window.joinWithProgress = async function() {
+  const btn=document.getElementById('joinBtn');
+  btn.style.display='none';
+  const prog=document.getElementById('joinProgress');
+  prog.style.display='block';
+  const fill=document.getElementById('joinFill');
+  const status=document.getElementById('joinStatus');
+  const steps=[['连接 COGITO 网络...',20],['验证会话密钥...',45],['加载公民数据库...',70],['初始化身份验证模块...',90],['接入完成',100]];
+  for(const[t,p]of steps){status.textContent=t;fill.style.width=p+'%';await delay(250+Math.random()*350);}
+  await delay(300);
+  try{await joinSession();}catch(e){console.error(e);alert('连接失败: '+e.message);btn.style.display='';prog.style.display='none';}
+};
+
 window.joinSession = async function() {
   const code = document.getElementById('sessionInput').value.trim().toUpperCase() || 'DEMO';
   S.sessionId = code;
