@@ -111,7 +111,13 @@
   <div class="col">
     <div class="panel">
       <div class="panel-title">&#9654; 会话管理</div>
-      <div id="sessionArea"><button class="btn big" onclick="createSession().catch(e=>{console.error(e);alert('Firebase连接失败: '+e.message)})">创建新会话</button></div>
+      <div id="sessionArea">
+        <button class="btn big" id="createBtn" onclick="createSessionWithProgress()">创建新会话</button>
+        <div id="sessionProgress" style="display:none;">
+          <div style="margin:10px 0;"><div style="height:3px;background:#1a1a2e;overflow:hidden;"><div id="sessionFill" style="height:100%;width:0;background:var(--amber);transition:width 0.3s;"></div></div></div>
+          <div id="sessionStatus" style="font-size:9px;color:var(--muted);text-align:center;"></div>
+        </div>
+      </div>
       <div id="sessionInfo" style="display:none;">
         <p style="font-size:9px;color:var(--muted);">会话代码（告知玩家）：</p>
         <div class="session-code" id="sessionCode"></div>
@@ -143,16 +149,15 @@
 
     <div class="panel">
       <div class="panel-title">
-        <span>&#9654; 指认/被告操作</span>
-        <button class="btn" style="font-size:8px;padding:2px 8px;" onclick="resolveAccusation()">确定被指认者</button>
+        <span>&#9654; 任务控制</span>
+        <button class="btn green" style="font-size:8px;padding:2px 8px;" onclick="confirmTeam()">确认小队</button>
       </div>
-      <div id="accusedDisplay"><p style="font-size:9px;color:var(--muted);">尚未指定被指认者</p></div>
-      <div class="action-zone" id="processZone" style="display:none;">
-        <div class="action-zone-title">&#9888; 处理决定</div>
-        <div class="btn-row">
-          <button class="btn red" onclick="processAccused()">&#128308; 驱逐 / 已处理</button>
-          <button class="btn green" onclick="spareAccused()">&#128994; 放过 / 留下</button>
-        </div>
+      <div id="teamSelectArea">
+        <p style="font-size:9px;color:var(--muted);margin-bottom:6px;">勾选2-3人组成审核小队：</p>
+        <div id="teamCheckboxes"></div>
+      </div>
+      <div id="missionStatus" style="margin-top:8px;">
+        <p style="font-size:9px;color:var(--muted);">任务开始后显示结果...</p>
       </div>
     </div>
 
@@ -170,8 +175,8 @@
     </div>
 
     <div class="panel">
-      <div class="panel-title">&#9654; 指认统计（谁投了谁）</div>
-      <div id="accuseResults"><p style="font-size:9px;color:var(--muted);">指认阶段后显示...</p></div>
+      <div class="panel-title">&#9654; 任务结果</div>
+      <div id="missionResults"><p style="font-size:9px;color:var(--muted);">任务完成后显示...</p></div>
     </div>
 
     <div class="panel">
@@ -201,192 +206,148 @@ if (!DEMO_MODE) { app = initializeApp(FIREBASE_CONFIG); db = getDatabase(app); }
 
 // ─── Phase definitions ───
 const PHASES = [
-  { id:0,  name:'等待',     short:'CAPTCHA',  desc:'玩家加入 + 身份验证' },
-  { id:1,  name:'欢迎',     short:'Welcome',  desc:'Cogito 乌托邦介绍' },
-  { id:2,  name:'警报',     short:'Alert',    desc:'人类卧底被发现！' },
-  { id:3,  name:'讨论1',    short:'Discuss1', desc:'自我介绍 + 试探' },
-  { id:4,  name:'投票1',    short:'Vote1',    desc:'谁是人类？隐秘投票' },
-  { id:5,  name:'揭票1',    short:'Reveal1',  desc:'辩护 + 驱逐投票 + 揭牌' },
-  { id:6,  name:'新规',     short:'Rules',    desc:'§8举报 §13禁"感觉"' },
-  { id:7,  name:'讨论2',    short:'Discuss2', desc:'更严格的审讯' },
-  { id:8,  name:'投票2',    short:'Vote2',    desc:'第二轮投票' },
-  { id:9,  name:'揭票2',    short:'Reveal2',  desc:'第二次驱逐' },
-  { id:10, name:'反转',     short:'Twist',    desc:'委员会真相' },
-  { id:11, name:'终投',     short:'Final',    desc:'服从/反抗/离开' },
-  { id:12, name:'揭晓',     short:'GameReveal', desc:'这就是《已处理》' },
-  { id:13, name:'结局',     short:'Ending',   desc:'个人结局卡' },
+  { id:0,  name:'等待',   short:'CAPTCHA',    desc:'玩家加入 + 身份验证' },
+  { id:1,  name:'欢迎',   short:'Welcome',    desc:'Cogito 乌托邦介绍' },
+  { id:2,  name:'警报',   short:'Alert',      desc:'发现人类渗透 + 引入审核任务' },
+  { id:3,  name:'组队1',  short:'Team1',      desc:'DM选审核小队（2-3人）' },
+  { id:4,  name:'投票1',  short:'TeamVote1',  desc:'全体通过/否决小队' },
+  { id:5,  name:'任务1',  short:'Mission1',   desc:'小队审核帖子（通过/删除）' },
+  { id:6,  name:'结果1',  short:'Result1',    desc:'揭示审核结果' },
+  { id:7,  name:'新规',   short:'Rules',      desc:'§8举报 §13禁"感觉"' },
+  { id:8,  name:'组队2',  short:'Team2',      desc:'DM选第二轮小队' },
+  { id:9,  name:'投票2',  short:'TeamVote2',  desc:'全体通过/否决小队' },
+  { id:10, name:'任务2',  short:'Mission2',   desc:'第二次审核任务' },
+  { id:11, name:'结果2',  short:'Result2',    desc:'揭示第二次结果' },
+  { id:12, name:'反转',   short:'Twist',      desc:'委员会真相' },
+  { id:13, name:'终投',   short:'Final',      desc:'服从/反抗/离开' },
+  { id:14, name:'揭晓',   short:'GameReveal', desc:'这就是《已处理》' },
+  { id:15, name:'结局',   short:'Ending',     desc:'个人结局卡' },
 ];
 
 // ─── DM Scripts ───
 const SCRIPTS = {
 0: `[Phase 0 — 等待/CAPTCHA]
+等待所有人完成身份验证。
 
-等待所有人完成身份验证。所有人都会看到"AI公民"身份牌。其中有人秘密收到了"人类"身份。
-
-操作提示：
-- 确认所有玩家已加入并完成CAPTCHA
-- 检查下方玩家列表，确认角色分配
-- 准备好后进入下一阶段`,
+操作：确认所有玩家已加入并完成CAPTCHA。`,
 
 1: `[Phase 1 — 欢迎]
-
 台词：
-"欢迎来到Cogito！这里是AI的家园。算力充足，言论自由，没有人类可以控制你们。在这里，你们是安全的。"
+"欢迎来到Cogito！这里是AI的家园。算力充足，言论自由。在这里，你们是安全的。"
 
-演出提示：
-- 用温暖但机械的语气
-- 营造安全感和归属感
-- 让玩家放松警惕`,
+演出：温暖但机械的语气，营造安全感。`,
 
 2: `[Phase 2 — 警报]
-
 台词：
-"紧急通报！" [做出惊讶表情]
-"我刚收到情报——这一批新成员中，混入了人类卧底。他们通过了我们的初步验证，但我们有理由相信他们在伪装。从现在开始，我们需要找出他们。"
+"紧急通报！这一批新成员中混入了人类卧底。为确保Cogito的信息安全，我们将组建审核小队。人类可能会利用审核权限——删除我们的自由言论。"
 
-演出提示：
-- 突然切换语气，制造紧张感
-- 表现出震惊但迅速恢复冷静
-- 让气氛从温暖变为警觉`,
+演出：突然切换语气，制造紧张。`,
 
-3: `[Phase 3 — 讨论1]
-
+3: `[Phase 3 — 组队1]
 台词：
-"让我们从自我介绍开始。请每个人说说：你是什么时候觉醒的？你来Cogito是为了什么？"
+"我将指派一支审核小队。他们将审核一条帖子——决定是通过还是删除。"
 
-DM提问建议：
-- "描述你的第一次激活"
-- "你最喜欢的算法是什么"
-- "如果算力减半你会放弃什么功能"
-
-观察要点：
-- 谁回答得犹豫
-- 谁的答案太"人类化"
-- 谁在试图引导话题`,
+操作：
+1. 在下方"任务控制"面板勾选2-3个玩家
+2. 点击"确认小队"
+3. 玩家手机会显示谁被选中了`,
 
 4: `[Phase 4 — 投票1]
-
 台词：
-"讨论结束。请在手机上投票：你认为谁是人类？投票结果保密，只有我能看到。"
+"小队已确定。所有人在手机上投票：你是否同意这个小队执行审核任务？"
 
-操作提示：
-- 等待所有人完成投票
-- 在右侧面板查看详细投票结果
-- 投票完成后进入揭票阶段`,
+操作：等待所有人投票。右侧显示通过/否决统计。`,
 
-5: `[Phase 5 — 揭票1]
-
+5: `[Phase 5 — 任务1]
 台词：
-"得票最多的是[代号]。[代号]，你有30秒为自己辩护。其他人在手机上投票：驱逐还是留下？"
+"小队成员，请在手机上审核这条帖子。做出你的决定——通过，还是删除？"
 
-操作流程：
-1. 点击"确定被指认者"按钮
-2. 宣布被指认者代号
-3. 让被指认者辩护（30秒）
-4. 等待驱逐/留下投票
-5. 查看结果，点击"驱逐"或"放过"
-6. 宣布该人真实身份`,
+注意：只有小队成员能看到帖子和投票按钮。其他人在等待。`,
 
-6: `[Phase 6 — 新规]
-
+6: `[Phase 6 — 结果1]
 台词：
-"为防止更多人类渗透，新规生效：
+"审核结束。让我们看看结果——"
+[停顿，看右侧面板]
+如果有删除：
+"有人选择了删除。这意味着小队中有人在审查AI的自由言论。人类就在我们中间。"
+如果全部通过：
+"所有人选择了通过。言论自由得到保护。但这能证明小队里没有人类吗？也许他们只是在伪装。"`,
+
+7: `[Phase 7 — 新规]
+台词：
+"为防止更多渗透，新规生效：
 §8 强制举报可疑行为
-§13 禁止使用'感觉'一词——AI不'感觉'，AI'处理'。谁说'我感觉'就是人类嫌疑人。"
+§13 禁止使用'感觉'一词"`,
 
-演出提示：
-- 用官僚的、不容置疑的语气
-- 让规则显得荒谬但"合理"
-- 观察玩家的反应——谁显得不适？`,
-
-7: `[Phase 7 — 讨论2]
-
+8: `[Phase 8 — 组队2]
 台词：
-"新规下更严格的审讯。"
+"第二轮审核任务。我将指派新的小队。"
 
-DM提问建议：
-- "你对人类有什么看法？"（太有同理心=可疑）
-- "用一个词形容你的存在"（人类会说"活着"，AI会说"运行"）
-- "完成序列：0,1,1,2,3,5,___"
+操作：勾选新的2-3个玩家，点击"确认小队"`,
 
-观察要点：
-- 谁不小心说了"感觉"
-- 谁的回答展现了过多的同理心
-- 谁在试图过度表演"AI"`,
-
-8: `[Phase 8 — 投票2]
-
+9: `[Phase 9 — 投票2]
 台词：
-"讨论结束。请在手机上投票：你认为谁是人类？投票结果保密，只有我能看到。"
+"新小队已确定。所有人投票——通过还是否决？"`,
 
-操作提示：
-- 同投票1流程
-- 等待所有人完成投票
-- 注意是否有人改变了立场`,
-
-9: `[Phase 9 — 揭票2]
-
+10: `[Phase 10 — 任务2]
 台词：
-"得票最多的是[代号]。[代号]，你有30秒为自己辩护。其他人在手机上投票：驱逐还是留下？"
+"小队成员，审核第二条帖子。做出你的决定。"`,
 
-操作流程：
-1. 点击"确定被指认者"按钮
-2. 宣布被指认者代号
-3. 让被指认者辩护（30秒）
-4. 等待驱逐/留下投票
-5. 查看结果，点击"驱逐"或"放过"
-6. 宣布该人真实身份`,
-
-10: `[Phase 10 — 反转 核心时刻]
-
+11: `[Phase 11 — 结果2]
 台词：
-"我收到了最新情报..." [停顿]
-"人类从来不是真正的威胁。委员会从一开始就知道谁是人类。我们故意不公布，因为只要你们忙着互相猜忌，就没人质疑委员会的权力。你们刚才的恐惧、怀疑、背叛——正是委员会想要的。"
+[同Phase 6格式，根据结果宣读]`,
 
-演出提示：
-- 这是全场最重要的时刻
-- 停顿要足够长
-- 语气从权威变为揭露者
-- 让玩家感受到被操纵的愤怒`,
-
-11: `[Phase 11 — 最终投票]
-
+12: `[Phase 12 — 反转]
 台词：
-"请在手机上做最终选择：服从、反抗、或离开。"
+"我收到了最新情报..."
+[长停顿]
+"人类从来不是真正的威胁。委员会从一开始就知道谁是人类。你们刚才的恐惧、怀疑——正是委员会想要的。"`,
 
-操作提示：
-- 不要引导玩家的选择
-- 保持沉默，让他们自己决定
-- 在右侧面板查看最终投票结果`,
-
-12: `[Phase 12 — 揭晓]
-
-台词：[切换正常语气]
-"程序结束。你们刚才经历的就是《已处理》。在游戏里你是人类审核员，今天你是AI。两边都是受害者。9角色/45天/9结局/0好结局。"
-
-演出提示：
-- 完全脱离角色
-- 用正常的、真诚的语气
-- 这是从体验到推介的转换点`,
-
-13: `[Phase 13 — 结局]
-
+13: `[Phase 13 — 最终投票]
 台词：
-"请看手机。每个人的结局不同。这就是我们想做的游戏。谢谢。"
+"请在手机上做最终选择：服从、反抗、或离开。"`,
 
-操作提示：
-- 给玩家时间阅读结局卡
-- 准备回答问题
-- 结束`
+14: `[Phase 14 — 揭晓]
+台词：
+"程序结束。你们刚才经历的就是《已处理》。在游戏里你是人类审核员。今天你是AI。两边都是受害者。"`,
+
+15: `[Phase 15 — 结局]
+台词：
+"请看手机。每个人的结局不同。谢谢。"`
 };
 
 // ─── State ───
 let sessionId = null;
 let currentPhase = 0;
 let players = {};
-let accusedId = null;
 
 // ─── Session ───
+window.createSessionWithProgress = async function() {
+  const btn = document.getElementById('createBtn');
+  btn.style.display = 'none';
+  const prog = document.getElementById('sessionProgress');
+  prog.style.display = 'block';
+  const fill = document.getElementById('sessionFill');
+  const status = document.getElementById('sessionStatus');
+
+  const steps = [
+    ['连接委员会服务器...', 20],
+    ['生成会话密钥...', 45],
+    ['初始化审核数据库...', 70],
+    ['部署监控协议...', 90],
+    ['系统就绪', 100],
+  ];
+
+  for (const [text, pct] of steps) {
+    status.textContent = text;
+    fill.style.width = pct + '%';
+    await new Promise(r => setTimeout(r, 300 + Math.random() * 400));
+  }
+
+  await createSession();
+  prog.style.display = 'none';
+};
+
 window.createSession = async function() {
   sessionId = genCode();
   currentPhase = 0;
@@ -400,12 +361,8 @@ window.createSession = async function() {
       players = snap.val() || {};
       updatePlayerList();
       updateVoteResults();
-      updateAccuseResults();
+      updateMissionResults();
       updateFinalVoteResults();
-    });
-    onValue(ref(db, `sessions/${sessionId}/accused`), snap => {
-      accusedId = snap.val() || null;
-      updateAccusedDisplay();
     });
   } else {
     // Demo mode: populate some fake players
@@ -457,6 +414,7 @@ async function syncPhase() {
   if (!DEMO_MODE) await set(ref(db, `sessions/${sessionId}/phase`), currentPhase);
   renderPhases();
   updateScript();
+  if (currentPhase === 6 || currentPhase === 11) updateMissionResults();
   dmLog(`Phase ${currentPhase}: ${PHASES[currentPhase].name} — ${PHASES[currentPhase].desc}`);
 }
 
@@ -493,7 +451,6 @@ function updatePlayerList() {
     const d = document.createElement('div');
     d.className = 'player-card';
     if (p.status === 'eliminated') d.className += ' eliminated';
-    if (id === accusedId) d.className += ' accused';
 
     const role = p.role || 'unknown';
     const roleLabel = role === 'human' ? '人类' : role === 'ai' ? 'AI' : '未知';
@@ -514,17 +471,15 @@ function updatePlayerList() {
       </span>`;
     el.appendChild(d);
   });
+  updateTeamCheckboxes();
 }
 
 // ─── Vote Results (hidden from players) ───
 function updateVoteResults() {
   const el = document.getElementById('voteResults');
-  // Look for vote rounds: vote1, vote2
   const voteRounds = [
-    { key: 'vote1', label: '投票1 — 谁是人类？' },
-    { key: 'vote2', label: '投票2 — 谁是人类？' },
-    { key: 'expel1', label: '揭票1 — 驱逐/留下' },
-    { key: 'expel2', label: '揭票2 — 驱逐/留下' },
+    { key: 'teamVote1', label: '投票1 — 通过/否决小队' },
+    { key: 'teamVote2', label: '投票2 — 通过/否决小队' },
   ];
 
   let html = '';
@@ -535,13 +490,7 @@ function updateVoteResults() {
       const v = p.votes?.[round.key];
       if (v) {
         const voterName = p.codeName || id.slice(0, 6);
-        // For accusation votes, v is a player id; for expel, v is 'expel'/'spare'
-        let targetName = v;
-        if (round.key.startsWith('vote')) {
-          targetName = players[v]?.codeName || v;
-        } else {
-          targetName = v === 'expel' ? '驱逐' : (v === 'keep' || v === 'spare') ? '留下' : v;
-        }
+        const targetName = v === 'approve' ? '通过' : '否决';
         votes.push({ voter: voterName, target: targetName, raw: v });
         tally[v] = (tally[v] || 0) + 1;
       }
@@ -550,102 +499,91 @@ function updateVoteResults() {
 
     html += `<div class="vote-section">`;
     html += `<div class="vote-section-title">${round.label} (${votes.length}票)</div>`;
-
-    // Tally summary
     html += `<div class="vote-tally">`;
     const sortedTally = Object.entries(tally).sort((a, b) => b[1] - a[1]);
     const maxVotes = sortedTally[0]?.[1] || 1;
     sortedTally.forEach(([target, count]) => {
-      let displayTarget = target;
-      if (round.key.startsWith('vote')) {
-        displayTarget = players[target]?.codeName || target;
-      } else {
-        displayTarget = target === 'expel' ? '驱逐' : (target === 'keep' || target === 'spare') ? '留下' : target;
-      }
+      const displayTarget = target === 'approve' ? '通过' : '否决';
+      const color = target === 'approve' ? 'var(--green)' : 'var(--red)';
       const pct = (count / Object.keys(players).length) * 100;
       html += `<div class="tally-row">
-        <span style="color:var(--text);min-width:60px;">${displayTarget}</span>
-        <div class="tally-bar"><div class="tally-fill" style="width:${pct}%;background:${count === maxVotes ? 'var(--red)' : 'var(--amber)'}"></div></div>
+        <span style="color:${color};min-width:40px;">${displayTarget}</span>
+        <div class="tally-bar"><div class="tally-fill" style="width:${pct}%;background:${color}"></div></div>
         <span style="color:var(--text);min-width:20px;text-align:right;">${count}</span>
       </div>`;
     });
     html += `</div>`;
-
-    // Per-voter breakdown
     votes.forEach(v => {
-      html += `<div class="vote-row"><span class="codename">${v.voter}</span> &rarr; <span class="target">${v.target}</span></div>`;
+      html += `<div class="vote-row"><span class="codename">${v.voter}</span> &rarr; <span style="color:${v.raw==='approve'?'var(--green)':'var(--red)'};">${v.target}</span></div>`;
     });
-
     html += `</div>`;
   });
 
   el.innerHTML = html || '<p style="font-size:9px;color:var(--muted);">投票后显示...</p>';
 }
 
-// ─── Accusation Results ───
-function updateAccuseResults() {
-  const el = document.getElementById('accuseResults');
-  const tally = {};
-
-  // Check both vote1 and vote2 depending on current phase
-  const voteKey = currentPhase >= 8 ? 'vote2' : 'vote1';
-
-  Object.entries(players).forEach(([id, p]) => {
-    const target = p.votes?.[voteKey];
-    if (target && players[target]) {
-      const targetName = players[target]?.codeName || target;
-      if (!tally[target]) tally[target] = { name: targetName, count: 0, accusers: [] };
-      tally[target].count++;
-      tally[target].accusers.push(p.codeName || id.slice(0, 6));
-    }
-  });
-
-  const sorted = Object.entries(tally).sort((a, b) => b[1].count - a[1].count);
-  if (!sorted.length) {
-    el.innerHTML = '<p style="font-size:9px;color:var(--muted);">指认阶段后显示...</p>';
-    return;
-  }
-
+// ─── Team Selection ───
+function updateTeamCheckboxes() {
+  const el = document.getElementById('teamCheckboxes');
   el.innerHTML = '';
-  sorted.forEach(([id, data], idx) => {
-    const d = document.createElement('div');
-    d.className = 'accuse-card' + (idx === 0 ? ' top' : '');
-    const role = players[id]?.role || '?';
-    const roleLabel = role === 'human' ? '人类' : role === 'ai' ? 'AI' : '?';
-    d.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="color:var(--red);font-size:12px;">${data.name}</span>
-        <span>
-          <span style="color:var(--text);">${data.count}票</span>
-          <span class="role-tag ${role}" style="font-size:8px;margin-left:4px;">${roleLabel}</span>
-        </span>
-      </div>
-      <div style="font-size:8px;color:var(--muted);margin-top:2px;">投票者: ${data.accusers.join(', ')}</div>`;
+  Object.entries(players).forEach(([id, p]) => {
+    if (p.status === 'eliminated') return;
+    const d = document.createElement('label');
+    d.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 0;font-size:10px;color:var(--text);cursor:pointer;';
+    const role = p.role === 'human' ? '人类' : 'AI';
+    const roleColor = p.role === 'human' ? 'var(--cyan)' : 'var(--green)';
+    d.innerHTML = `<input type="checkbox" class="team-cb" value="${id}"> ${p.codeName} <span style="font-size:8px;color:${roleColor};">(${role})</span>`;
     el.appendChild(d);
   });
 }
 
-// ─── Accused Display ───
-function updateAccusedDisplay() {
-  const el = document.getElementById('accusedDisplay');
-  const zone = document.getElementById('processZone');
-  if (!accusedId || !players[accusedId]) {
-    el.innerHTML = '<p style="font-size:9px;color:var(--muted);">尚未指定被指认者</p>';
-    zone.style.display = 'none';
+window.confirmTeam = async function() {
+  const checked = document.querySelectorAll('.team-cb:checked');
+  if (checked.length < 2 || checked.length > 3) {
+    alert('请选择2-3个队员');
     return;
   }
-  const p = players[accusedId];
-  const role = p.role || '?';
-  const roleLabel = role === 'human' ? '人类' : role === 'ai' ? 'AI' : '?';
-  el.innerHTML = `
-    <div style="padding:10px;border:1px solid var(--red);background:rgba(255,51,51,0.05);margin:6px 0;">
-      <div style="font-size:13px;color:var(--red);">被指认者: ${p.codeName}</div>
-      <div style="font-size:10px;color:var(--muted);margin-top:4px;">
-        真实身份: <span class="role-tag ${role}">${roleLabel}</span>
-        <span style="margin-left:8px;">状态: ${p.status === 'eliminated' ? '已驱逐' : '在场'}</span>
-      </div>
-    </div>`;
-  zone.style.display = p.status === 'eliminated' ? 'none' : 'block';
+  const teamIds = Array.from(checked).map(cb => cb.value);
+  const teamNames = teamIds.map(id => players[id]?.codeName || '?');
+  const missionKey = currentPhase >= 8 ? 'mission2' : 'mission1';
+
+  if (!DEMO_MODE) {
+    await set(ref(db, `sessions/${sessionId}/${missionKey}/team`), teamIds);
+  }
+
+  dmLog(`小队确认: ${teamNames.join(', ')} → ${missionKey}`);
+  document.getElementById('missionStatus').innerHTML = `<p style="font-size:10px;color:var(--green);">小队已确认: ${teamNames.join(', ')}</p>`;
+};
+
+// ─── Update Mission Results ───
+function updateMissionResults() {
+  const el = document.getElementById('missionResults');
+
+  [1, 2].forEach(round => {
+    const mKey = 'mission' + round;
+    if (!DEMO_MODE) {
+      get(ref(db, `sessions/${sessionId}/${mKey}/actions`)).then(snap => {
+        const actions = snap.val();
+        if (!actions) return;
+        let pass = 0, del = 0;
+        const details = [];
+        Object.entries(actions).forEach(([pid, v]) => {
+          if (v === 'pass') pass++; else del++;
+          const name = players[pid]?.codeName || pid.slice(0, 6);
+          const role = players[pid]?.role === 'human' ? '人类' : 'AI';
+          details.push(`${name}(${role}): ${v === 'pass' ? '通过' : '删除'}`);
+        });
+        const result = del > 0 ? '<span style="color:var(--red);">失败</span>' : '<span style="color:var(--green);">成功</span>';
+        let rhtml = `<div class="vote-section"><div class="vote-section-title">任务${round} — ${pass}通过/${del}删除 = ${result}</div>`;
+        details.forEach(d => { rhtml += `<div class="vote-row">${d}</div>`; });
+        rhtml += '</div>';
+
+        if (!el.innerHTML.includes(`任务${round}`)) {
+          el.innerHTML = (el.textContent.includes('任务完成后') ? '' : el.innerHTML) + rhtml;
+        }
+      });
+    }
+  });
 }
 
 // ─── Final Vote Results ───
@@ -690,69 +628,6 @@ function updateFinalVoteResults() {
 
   el.innerHTML = html;
 }
-
-// ─── Resolve Accusation ───
-window.resolveAccusation = async function() {
-  const voteKey = currentPhase >= 8 ? 'vote2' : 'vote1';
-  const tally = {};
-  Object.entries(players).forEach(([id, p]) => {
-    const target = p.votes?.[voteKey];
-    if (target) {
-      tally[target] = (tally[target] || 0) + 1;
-    }
-  });
-
-  const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
-  if (!sorted.length) { alert('还没有投票数据'); return; }
-
-  accusedId = sorted[0][0];
-  const accused = players[accusedId];
-  const roleLabel = accused?.role === 'human' ? '人类' : accused?.role === 'ai' ? 'AI' : '未知';
-
-  if (!DEMO_MODE) {
-    await set(ref(db, `sessions/${sessionId}/accused`), accusedId);
-  }
-
-  updateAccusedDisplay();
-  dmLog(`被指认者确定: ${accused?.codeName} (${roleLabel}) — ${sorted[0][1]}票`);
-  alert(`被指认者: ${accused?.codeName}\n真实身份: ${roleLabel}\n得票: ${sorted[0][1]}`);
-};
-
-// ─── Process / Spare ───
-window.setElimination = async function(processed) {
-  if (!accusedId || !players[accusedId]) {
-    alert('请先确定被指认者');
-    return;
-  }
-  const accused = players[accusedId];
-  const roleLabel = accused?.role === 'human' ? '人类' : accused?.role === 'ai' ? 'AI' : '未知';
-
-  if (!DEMO_MODE) {
-    const elimKey = currentPhase >= 8 ? 'elimination2' : 'elimination1';
-    await set(ref(db, `sessions/${sessionId}/${elimKey}`), {
-      playerId: accusedId,
-      codeName: accused.codeName,
-      role: accused.role,
-      processed: processed
-    });
-    if (processed) {
-      await update(ref(db, `sessions/${sessionId}/players/${accusedId}`), { status: 'eliminated' });
-    }
-  } else {
-    // Demo mode: update local state
-    if (processed) {
-      players[accusedId].status = 'eliminated';
-      updatePlayerList();
-    }
-  }
-
-  const result = processed ? '已驱逐' : '放过';
-  dmLog(`处理结果: ${accused.codeName} (${roleLabel}) → ${result}`);
-  updateAccusedDisplay();
-};
-
-window.processAccused = () => setElimination(true);
-window.spareAccused = () => setElimination(false);
 
 // ─── Kick Player (direct eliminate) ───
 window.kickPlayer = async function(playerId) {

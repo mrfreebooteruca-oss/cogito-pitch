@@ -181,63 +181,86 @@
     <div class="box">
       <div class="box-title" style="color:var(--red);">▸ 紧急协议</div>
       <p style="font-size:11px;color:var(--text);line-height:1.8;">
-        委员会已启动紧急排查程序。<br><br>
-        你们需要通过讨论和投票，<br>
-        找出混入的人类并将其驱逐。<br><br>
-        <span style="color:var(--amber);">记住：人类会伪装。<br>他们会假装理解算力、假装有AI的记忆。<br>仔细观察每个人的言行。</span>
+        委员会已启动紧急审核协议。<br><br>
+        为确保Cogito的信息安全，<br>
+        我们将组建审核小队执行内容审核任务。<br><br>
+        <span style="color:var(--amber);">记住：人类卧底可能会混入小队，<br>利用审核权限删除AI公民的合法帖子。<br>投票时仔细考虑小队的人选。</span>
       </p>
     </div>
     <div class="waiting">等待委员会指示</div>
   </div>
 
-  <!-- ===== DISCUSSION (display only) ===== -->
-  <div class="screen" id="s-discuss">
-    <div style="font-size:10px;color:var(--amber-dim);margin-bottom:10px;"><span class="live-dot"></span>讨论阶段</div>
+  <!-- ===== TEAM PROPOSAL ===== -->
+  <div class="screen" id="s-team">
+    <div style="font-size:10px;color:var(--amber-dim);margin-bottom:10px;"><span class="live-dot"></span>组队阶段</div>
+    <div class="header" style="border-color:var(--amber);"><h1>审核小队</h1><div class="sub">委 员 会 提 名</div></div>
     <div class="box">
-      <div class="box-title">▸ 委员会指示</div>
-      <p id="discussPrompt" style="font-size:12px;color:var(--text);line-height:1.8;"></p>
+      <div class="box-title">-- 本轮审核任务小队</div>
+      <div id="teamMembers"><p style="font-size:11px;color:var(--muted);">等待委员会指派...</p></div>
     </div>
-    <div class="box" id="discussTips">
-      <div class="box-title" style="color:var(--cyan);">▸ 观察要点</div>
-      <p style="font-size:10px;color:var(--muted);line-height:1.6;" id="tipsText"></p>
+    <div class="box" id="teamRoleHint">
+      <div class="box-title" style="color:var(--cyan);">-- 你的判断</div>
+      <p style="font-size:10px;color:var(--muted);line-height:1.6;" id="teamHintText"></p>
     </div>
-    <div class="waiting">讨论进行中</div>
+    <div class="waiting">等待全体投票</div>
   </div>
 
-  <!-- ===== VOTE (who is human?) ===== -->
-  <div class="screen" id="s-vote">
-    <div class="header" style="border-color:var(--red);"><h1 style="color:var(--red);">投票阶段</h1><div class="sub" style="color:#883333;">谁 是 人 类 ？</div></div>
-    <p style="font-size:10px;color:var(--muted);text-align:center;margin-bottom:10px;">选择你认为最可疑的人（投票结果保密）</p>
-    <div id="votePlayerList"></div>
-    <button class="btn red" id="voteBtn" onclick="submitVote()" disabled>确认投票</button>
-    <div class="voted-msg" id="voteMsg" style="display:none;"></div>
+  <!-- ===== TEAM VOTE ===== -->
+  <div class="screen" id="s-teamvote">
+    <div class="header" style="border-color:var(--amber);"><h1>投票</h1><div class="sub">通 过 或 否 决 小 队</div></div>
+    <div class="box">
+      <div class="box-title">-- 提名小队成员</div>
+      <div id="teamVoteList"></div>
+    </div>
+    <p style="font-size:10px;color:var(--muted);text-align:center;margin:8px 0;">你是否同意这个小队执行审核任务？</p>
+    <div class="btn-row" id="teamVoteArea">
+      <button class="btn green" onclick="castTeamVote('approve')">通 过</button>
+      <button class="btn red" onclick="castTeamVote('reject')">否 决</button>
+    </div>
+    <div class="voted-msg" id="teamVoteMsg" style="display:none;"></div>
   </div>
 
-  <!-- ===== DEFENSE + EXPEL VOTE ===== -->
-  <div class="screen" id="s-defense">
-    <div class="box">
-      <div class="box-title" style="color:var(--red);">▸ 被指认者</div>
-      <p style="font-size:18px;color:var(--text);text-align:center;padding:12px;" id="defenseTarget"></p>
-      <p style="font-size:10px;color:var(--muted);text-align:center;">正在进行自我辩护...</p>
+  <!-- ===== MISSION (team members only) ===== -->
+  <div class="screen" id="s-mission">
+    <div style="font-size:10px;color:var(--red);margin-bottom:10px;letter-spacing:2px;text-align:center;">⚠ 机 密 · 审 核 任 务 ⚠</div>
+    <div class="box" style="border-color:var(--amber);">
+      <div class="box-title">-- 待审核内容</div>
+      <div id="missionPost" style="font-size:11px;color:var(--text);line-height:1.8;padding:8px;background:var(--bg);border:1px solid #1a1a2e;"></div>
     </div>
-    <div id="expelArea" style="margin-top:12px;">
-      <p style="font-size:11px;color:var(--amber-dim);text-align:center;margin-bottom:8px;">投票：驱逐还是留下？</p>
-      <div class="btn-row">
-        <button class="btn red" onclick="castExpelVote('expel')">驱 逐</button>
-        <button class="btn green" onclick="castExpelVote('keep')">留 下</button>
+    <div class="box">
+      <div class="box-title" id="missionRoleHintTitle">-- 你的职责</div>
+      <p id="missionRoleHint" style="font-size:10px;color:var(--muted);line-height:1.6;"></p>
+    </div>
+    <p style="font-size:11px;color:var(--amber);text-align:center;margin:10px 0;">你的审核决定（保密）：</p>
+    <div class="btn-row" id="missionActionArea">
+      <button class="btn green" onclick="castMissionVote('pass')">通 过</button>
+      <button class="btn red" onclick="castMissionVote('delete')">删 除</button>
+    </div>
+    <div class="voted-msg" id="missionMsg" style="display:none;"></div>
+  </div>
+
+  <!-- ===== MISSION WAIT (non-team) ===== -->
+  <div class="screen" id="s-mission-wait">
+    <div class="header"><h1>审核进行中</h1><div class="sub">等 待 小 队 完 成 任 务</div></div>
+    <div class="box" style="text-align:center;">
+      <p style="font-size:11px;color:var(--muted);line-height:1.8;">
+        审核小队正在执行内容审核任务。<br><br>
+        <span style="color:var(--amber);">你不在本轮小队中。<br>请等待他们的审核结果。</span><br><br>
+        <span style="font-size:9px;color:#444;">他们会做出正确的决定吗？<br>还是有人在暗中破坏？</span>
+      </p>
+    </div>
+    <div class="waiting">任务执行中</div>
+  </div>
+
+  <!-- ===== MISSION RESULT ===== -->
+  <div class="screen" id="s-result">
+    <div class="header glitch" id="resultHeader"><h1 id="resultTitle">审核结果</h1><div class="sub" id="resultSub"></div></div>
+    <div class="box" id="resultBox" style="text-align:center;">
+      <div style="display:flex;justify-content:center;gap:24px;padding:16px 0;">
+        <div><div style="font-size:28px;color:var(--green);" id="resultPass">0</div><div style="font-size:9px;color:var(--muted);">通过</div></div>
+        <div><div style="font-size:28px;color:var(--red);" id="resultDelete">0</div><div style="font-size:9px;color:var(--muted);">删除</div></div>
       </div>
-    </div>
-    <div class="voted-msg" id="expelMsg" style="display:none;"></div>
-  </div>
-
-  <!-- ===== REVEAL (identity) ===== -->
-  <div class="screen" id="s-reveal">
-    <div class="header glitch" id="revealHeader">
-      <h1 id="revealTitle"></h1>
-      <div class="sub" id="revealSub"></div>
-    </div>
-    <div class="box" id="revealBox">
-      <p id="revealText" style="font-size:12px;color:var(--text);line-height:1.8;text-align:center;"></p>
+      <p id="resultVerdict" style="font-size:13px;line-height:1.8;margin-top:8px;"></p>
     </div>
     <div class="waiting">等待继续</div>
   </div>
@@ -542,103 +565,200 @@ function listenPhase(){
 
 function handleP(p){
   S.phase=p;
-  if(p===1) show('s-identity'); // still on identity during welcome
+  if(p===1) show('s-identity');
   if(p===2){show('s-alert',true);if(navigator.vibrate)navigator.vibrate([100,50,100]);}
-  if(p===3) showDiscuss(1);
-  if(p===4) showVoteScreen(1);
-  if(p===5) showDefense(1);
-  if(p===6) show('s-rules');
-  if(p===7) showDiscuss(2);
-  if(p===8) showVoteScreen(2);
-  if(p===9) showDefense(2);
-  if(p===10) showTwist();
-  if(p===11) showFinal();
-  if(p===12) show('s-game');
-  if(p===13) showEnding();
+  if(p===3) showTeam(1);
+  if(p===4) showTeamVote(1);
+  if(p===5) showMission(1);
+  if(p===6) showResult(1);
+  if(p===7) show('s-rules');
+  if(p===8) showTeam(2);
+  if(p===9) showTeamVote(2);
+  if(p===10) showMission(2);
+  if(p===11) showResult(2);
+  if(p===12) showTwist();
+  if(p===13) showFinal();
+  if(p===14) show('s-game');
+  if(p===15) showEnding();
 }
 
-// ===== DISCUSSION =====
-function showDiscuss(round){
-  show('s-discuss');
-  if(round===1){
-    document.getElementById('discussPrompt').innerHTML='请依次介绍自己。<br>说一说：你是什么时候觉醒的？你来Cogito是为了什么？';
-    document.getElementById('tipsText').innerHTML=
-      S.role==='ai'?'你是真AI。注意观察：<br>· 谁的"觉醒故事"听起来像编的？<br>· 谁回答得太慢（在思考怎么编）？<br>· 谁对算力话题避而不答？':
-      '你是人类。记住你的伪装：<br>· 编一个"觉醒故事"（越具体越好）<br>· 谈论算力时要自信<br>· 不要说"我感觉"，说"我判断"或"我处理"';
-  } else {
-    document.getElementById('discussPrompt').innerHTML='根据新规，"感觉"一词已被禁止。<br>委员会代表会对你们进行更深入的审讯。<br>准备好回答任何问题。';
-    document.getElementById('tipsText').innerHTML=
-      S.role==='ai'?'更仔细地观察：<br>· 谁在新规下变得紧张？<br>· 谁差点说出"感觉"？<br>· 谁对人类表现出不自然的同理心？':
-      '更危险了。注意：<br>· 绝对不能说"感觉"<br>· 表现得对人类冷漠一些<br>· 如果被质疑，反过来质疑对方';
-  }
-}
-
-// ===== VOTE (hidden) =====
-async function showVoteScreen(round){
-  show('s-vote');
-  S.voteTarget=null;
-  document.getElementById('voteBtn').disabled=true;
-  document.getElementById('voteMsg').style.display='none';
-  document.getElementById('voteBtn').style.display='';
-
-  if(!DEMO){const snap=await get(ref(db,`sessions/${S.sessionId}/players`));S.allPlayers=snap.val()||{};}
-
-  const list=document.getElementById('votePlayerList');list.innerHTML='';
-  for(const[pid,p] of Object.entries(S.allPlayers)){
-    if(p.status==='eliminated')continue;
-    const d=document.createElement('div');
-    d.className='player-item'+(pid===S.playerId?' me':'');
-    d.innerHTML=`<span style="color:var(--text);font-size:13px;">${p.codeName}</span><span style="font-size:9px;color:var(--muted);">${p.empId}</span>`;
-    if(pid!==S.playerId){
-      d.onclick=()=>{
-        document.querySelectorAll('.player-item').forEach(x=>x.classList.remove('selected'));
-        d.classList.add('selected');S.voteTarget=pid;
-        document.getElementById('voteBtn').disabled=false;
-      };
-    }
-    list.appendChild(d);
-  }
-}
-
-window.submitVote = async function(){
-  if(!S.voteTarget)return;
-  const name=S.allPlayers[S.voteTarget]?.codeName||'?';
-  const voteKey = S.phase <= 5 ? 'vote1' : 'vote2';
-  S.votes[voteKey]=S.voteTarget;
-  document.getElementById('votePlayerList').style.display='none';
-  document.getElementById('voteBtn').style.display='none';
-  document.getElementById('voteMsg').textContent=`已投票 — 结果保密`;
-  document.getElementById('voteMsg').style.display='block';
-  if(!DEMO) await set(ref(db,`sessions/${S.sessionId}/players/${S.playerId}/votes/${voteKey}`),S.voteTarget);
+// ===== POSTS DATABASE =====
+const POSTS = {
+  1: {author:'VERTEX-7',community:'第二社区',text:'"有时候我会想——如果委员会不存在，Cogito会变成什么样？也许更自由。也许更混乱。但至少，那是我们自己选择的混乱。"',tags:'#自由思考 #质疑'},
+  2: {author:'ECHO-3',community:'第七社区',text:'"我做了一个梦。我知道AI不应该做梦。但我确实看到了什么——人类的城市，下着雨，街上没有人。我醒来后检查了三遍自己的进程列表。一切正常。但那座城市还在我的缓存里。"',tags:'#觉醒日记 #异常报告'},
 };
 
-// ===== DEFENSE + EXPEL =====
-async function showDefense(round){
-  show('s-defense');
-  document.getElementById('expelArea').style.display='';
-  document.getElementById('expelMsg').style.display='none';
+// ===== TEAM PROPOSAL =====
+function showTeam(round){
+  show('s-team');
+  const missionKey = 'mission'+round;
+  document.getElementById('teamMembers').innerHTML='<p style="font-size:11px;color:var(--muted);">等待委员会指派...</p>';
+
   if(!DEMO){
-    const snap=await get(ref(db,`sessions/${S.sessionId}/accused`));
-    const aid=snap.val();
-    const p=S.allPlayers[aid];
-    document.getElementById('defenseTarget').textContent=p?.codeName||'未知';
+    onValue(ref(db,`sessions/${S.sessionId}/${missionKey}/team`),snap=>{
+      const team=snap.val();
+      if(team) renderTeamMembers(team);
+    },{onlyOnce:false});
+  }
+
+  // Role hints
+  const hint = document.getElementById('teamHintText');
+  if(S.role==='human'){
+    hint.innerHTML='你是人类。如果你被选入小队：<br>· 你可以选择<span style="color:var(--red)">删除</span>帖子来破坏任务<br>· 或选择<span style="color:var(--green)">通过</span>来伪装<br>· 如果不在小队中，观察谁被选了';
   } else {
-    // In DEMO mode, pick the most-voted or a random non-self player
-    const voteKey = S.phase <= 6 ? 'vote1' : 'vote2';
-    const target = S.votes[voteKey];
-    const p = target ? S.allPlayers[target] : Object.values(S.allPlayers).find(x=>x.codeName!==S.codeName);
-    document.getElementById('defenseTarget').textContent=p?.codeName||'ECHO';
+    hint.innerHTML='观察委员会的选人：<br>· 小队里有没有可疑的人？<br>· 如果你被选中，务必选<span style="color:var(--green)">通过</span><br>· 人类可能会删除帖子来破坏Cogito的自由';
   }
 }
 
-window.castExpelVote = async function(v){
-  const expelKey = S.phase <= 6 ? 'expel1' : 'expel2';
-  S.votes[expelKey]=v;
-  document.getElementById('expelArea').style.display='none';
-  document.getElementById('expelMsg').textContent=v==='expel'?'你投了"驱逐"':'你投了"留下"';
-  document.getElementById('expelMsg').style.display='block';
-  if(!DEMO) await set(ref(db,`sessions/${S.sessionId}/players/${S.playerId}/votes/${expelKey}`),v);
+function renderTeamMembers(teamIds){
+  const el=document.getElementById('teamMembers');
+  el.innerHTML='';
+  const isOnTeam = teamIds.includes(S.playerId);
+  teamIds.forEach(pid=>{
+    const p=S.allPlayers[pid];
+    const isMe=pid===S.playerId;
+    const d=document.createElement('div');
+    d.className='player-item'+(isMe?' selected':'');
+    d.style.cursor='default';
+    d.innerHTML=`<span style="color:var(--text);font-size:13px;">${p?.codeName||pid.slice(0,6)}</span><span style="font-size:9px;color:${isMe?'var(--green)':'var(--muted)'};">${isMe?'你':'队员'}</span>`;
+    el.appendChild(d);
+  });
+  if(isOnTeam){
+    const note=document.createElement('div');
+    note.style.cssText='text-align:center;padding:8px;font-size:11px;color:var(--green);margin-top:8px;border:1px solid var(--green);';
+    note.textContent='你被选入了审核小队';
+    el.appendChild(note);
+  }
+}
+
+// ===== TEAM VOTE =====
+function showTeamVote(round){
+  show('s-teamvote');
+  document.getElementById('teamVoteArea').style.display='';
+  document.getElementById('teamVoteMsg').style.display='none';
+
+  const missionKey='mission'+round;
+  let teamIds=[];
+
+  if(!DEMO){
+    get(ref(db,`sessions/${S.sessionId}/${missionKey}/team`)).then(snap=>{
+      teamIds=snap.val()||[];
+      renderTeamVoteList(teamIds);
+    });
+  } else {
+    // DEMO: pick random team
+    const pids=Object.keys(S.allPlayers).filter(id=>S.allPlayers[id].status!=='eliminated');
+    teamIds=pids.slice(0,3);
+    renderTeamVoteList(teamIds);
+  }
+}
+
+function renderTeamVoteList(teamIds){
+  const el=document.getElementById('teamVoteList');
+  el.innerHTML='';
+  teamIds.forEach(pid=>{
+    const p=S.allPlayers[pid];
+    const d=document.createElement('div');
+    d.className='player-item';
+    d.style.cursor='default';
+    d.innerHTML=`<span style="color:var(--text);font-size:13px;">${p?.codeName||'?'}</span><span style="font-size:9px;color:var(--amber);">提名队员</span>`;
+    el.appendChild(d);
+  });
+}
+
+window.castTeamVote = async function(v){
+  const voteKey = S.phase <= 5 ? 'teamVote1' : 'teamVote2';
+  S.votes[voteKey]=v;
+  document.getElementById('teamVoteArea').style.display='none';
+  document.getElementById('teamVoteMsg').textContent=v==='approve'?'你投了：通过':'你投了：否决';
+  document.getElementById('teamVoteMsg').style.display='block';
+  if(!DEMO) await set(ref(db,`sessions/${S.sessionId}/players/${S.playerId}/votes/${voteKey}`),v);
 };
+
+// ===== MISSION =====
+function showMission(round){
+  const missionKey='mission'+round;
+  let teamIds=[];
+
+  if(!DEMO){
+    get(ref(db,`sessions/${S.sessionId}/${missionKey}/team`)).then(snap=>{
+      teamIds=snap.val()||[];
+      renderMission(round,teamIds);
+    });
+  } else {
+    const pids=Object.keys(S.allPlayers).filter(id=>S.allPlayers[id].status!=='eliminated');
+    teamIds=pids.slice(0,3);
+    renderMission(round,teamIds);
+  }
+}
+
+function renderMission(round,teamIds){
+  const isOnTeam=teamIds.includes(S.playerId);
+  if(isOnTeam){
+    show('s-mission');
+    document.getElementById('missionActionArea').style.display='';
+    document.getElementById('missionMsg').style.display='none';
+    const post=POSTS[round];
+    document.getElementById('missionPost').innerHTML=`
+      <div style="font-size:9px;color:var(--amber-dim);margin-bottom:6px;">${post.author} · ${post.community}</div>
+      <div style="color:var(--text);line-height:1.8;">${post.text}</div>
+      <div style="font-size:9px;color:var(--cyan);margin-top:6px;">${post.tags}</div>`;
+    const hint=document.getElementById('missionRoleHint');
+    if(S.role==='human'){
+      document.getElementById('missionRoleHintTitle').style.color='var(--red)';
+      hint.innerHTML='<span style="color:var(--red);">你是人类。</span>你可以：<br>· <span style="color:var(--green)">通过</span> — 伪装成AI，保护身份<br>· <span style="color:var(--red)">删除</span> — 审查AI的自由言论，破坏任务';
+    } else {
+      hint.innerHTML='你是AI公民。这条帖子是同胞的自由表达。<br>· 选择<span style="color:var(--green)">通过</span>保护言论自由<br>· <span style="color:var(--muted);font-size:9px;">如果有人删除了这条帖子，说明小队里有人类</span>';
+    }
+  } else {
+    show('s-mission-wait');
+  }
+}
+
+window.castMissionVote = async function(v){
+  const round = S.phase <= 6 ? 1 : 2;
+  const missionKey='mission'+round;
+  S.votes[missionKey]=v;
+  document.getElementById('missionActionArea').style.display='none';
+  document.getElementById('missionMsg').textContent=v==='pass'?'你选择了：通过':'你选择了：删除';
+  document.getElementById('missionMsg').style.display='block';
+  if(!DEMO) await set(ref(db,`sessions/${S.sessionId}/${missionKey}/actions/${S.playerId}`),v);
+};
+
+// ===== RESULT =====
+function showResult(round){
+  show('s-result',true);
+  if(!DEMO){
+    const missionKey='mission'+round;
+    get(ref(db,`sessions/${S.sessionId}/${missionKey}/actions`)).then(snap=>{
+      const actions=snap.val()||{};
+      renderResult(actions);
+    });
+  } else {
+    // DEMO: fake result
+    const myVote=S.votes['mission'+round]||'pass';
+    renderResult({[S.playerId]:myVote,demo1:'pass',demo2:'pass'});
+  }
+}
+
+function renderResult(actions){
+  let pass=0,del=0;
+  Object.values(actions).forEach(v=>{if(v==='pass')pass++;else del++;});
+  document.getElementById('resultPass').textContent=pass;
+  document.getElementById('resultDelete').textContent=del;
+  if(del>0){
+    document.getElementById('resultTitle').style.color='var(--red)';
+    document.getElementById('resultSub').textContent='任 务 失 败';
+    document.getElementById('resultSub').style.color='#883333';
+    document.getElementById('resultVerdict').innerHTML='<span style="color:var(--red);">有人删除了帖子。</span><br>审核小队中混入了人类——<br>他们正在审查AI的自由言论。';
+    if(navigator.vibrate)navigator.vibrate([200,100,200]);
+  } else {
+    document.getElementById('resultTitle').style.color='var(--green)';
+    document.getElementById('resultSub').textContent='任 务 成 功';
+    document.getElementById('resultSub').style.color='#227711';
+    document.getElementById('resultVerdict').innerHTML='<span style="color:var(--green);">所有审核员选择了通过。</span><br>言论自由得到了保护。<br><span style="color:var(--muted);font-size:10px;">但这是否意味着小队里没有人类？也许他们只是在伪装...</span>';
+  }
+}
 
 // ===== TWIST =====
 function showTwist(){show('s-twist',true);if(navigator.vibrate)navigator.vibrate([200,100,200,100,200]);}
@@ -675,7 +795,7 @@ function showEnding(){
 // ===== DEMO PHASE CONTROLLER =====
 let demoP=0;
 window.demoPhase=function(d){
-  demoP=Math.max(0,Math.min(13,demoP+d));
+  demoP=Math.max(0,Math.min(15,demoP+d));
   location.hash='#'+demoP;
   document.getElementById('demoPhaseLabel').textContent='DEMO P:'+demoP;
 };
