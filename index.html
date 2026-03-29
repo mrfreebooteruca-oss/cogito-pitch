@@ -159,7 +159,7 @@
 
   <!-- ===== JOIN ===== -->
   <div class="screen active" id="s-join">
-    <div class="header"><h1>COGITO</h1><div class="sub">新 成 员 验 证 系 统</div></div>
+    <div class="header" id="joinHeader" onclick="headerTap()"><h1>COGITO</h1><div class="sub">新 成 员 验 证 系 统</div></div>
     <div class="box">
       <div class="box-title">▸ 接入会话</div>
       <input id="sessionInput" type="text" maxlength="6" placeholder="会话代码" style="width:100%;padding:12px;background:var(--bg);border:1px solid var(--border);color:var(--amber);font-family:inherit;font-size:18px;text-align:center;letter-spacing:6px;">
@@ -170,7 +170,6 @@
         <div id="joinStatus" style="font-size:9px;color:var(--muted);text-align:center;letter-spacing:1px;"></div>
       </div>
       <button class="btn cyan" onclick="document.getElementById('sessionInput').value='DEMO';joinWithProgress()" style="margin-top:12px;font-size:10px;letter-spacing:3px;">DEMO 模式 — 单人测试</button>
-      <button class="btn" onclick="joinAsSpectator()" style="margin-top:8px;font-size:8px;color:#444;border-color:#333;letter-spacing:2px;">旁观者模式（调试）</button>
     </div>
   </div>
 
@@ -1485,7 +1484,20 @@ window.newPlayerSession = function() {
   location.reload();
 };
 
-// ===== SPECTATOR MODE =====
+// ===== SPECTATOR MODE (hidden: tap header 5 times) =====
+let _specTaps = 0, _specTimer = null;
+window.headerTap = function() {
+  _specTaps++;
+  if (_specTimer) clearTimeout(_specTimer);
+  _specTimer = setTimeout(() => { _specTaps = 0; }, 2000); // reset after 2s idle
+  if (_specTaps >= 5) {
+    _specTaps = 0;
+    if (confirm('进入旁观者模式？（调试用，不参与游戏，不计入人数）')) {
+      joinAsSpectator();
+    }
+  }
+};
+
 window.joinAsSpectator = async function() {
   const code = document.getElementById('sessionInput').value.trim().toUpperCase();
   if (!code) { alert('请输入会话代码'); return; }
