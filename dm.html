@@ -97,9 +97,9 @@
 
 <script>
 (function(){
-  const steps=[['验证代表权限...',20],['加载控制协议...',40],['同步会话数据...',60],['初始化监控面板...',80],['权限确认 · 等级：最高',100]];
+  const steps=[['验证代表权限...',30],['加载控制协议...',60],['初始化监控面板...',90],['就绪',100]];
   const f=document.getElementById('bootFill'),s=document.getElementById('bootStatus'),sc=document.getElementById('bootScreen');
-  let i=0;function n(){if(i>=steps.length){setTimeout(()=>sc.classList.add('done'),400);return;}s.textContent=steps[i][0];f.style.width=steps[i][1]+'%';i++;setTimeout(n,300+Math.random()*400);}n();
+  let i=0;function n(){if(i>=steps.length){setTimeout(()=>sc.classList.add('done'),200);return;}s.textContent=steps[i][0];f.style.width=steps[i][1]+'%';i++;setTimeout(n,120+Math.random()*180);}n();
 })();
 </script>
 
@@ -277,17 +277,16 @@ window.createSessionWithProgress = async function() {
   const status = document.getElementById('sessionStatus');
 
   const steps = [
-    ['连接委员会服务器...', 20],
-    ['生成会话密钥...', 45],
-    ['初始化审核数据库...', 70],
-    ['部署监控协议...', 90],
+    ['连接委员会服务器...', 30],
+    ['生成会话密钥...', 60],
+    ['初始化审核数据库...', 90],
     ['系统就绪', 100],
   ];
 
   for (const [text, pct] of steps) {
     status.textContent = text;
     fill.style.width = pct + '%';
-    await new Promise(r => setTimeout(r, 300 + Math.random() * 400));
+    await new Promise(r => setTimeout(r, 120 + Math.random() * 180));
   }
 
   await createSession();
@@ -633,13 +632,60 @@ window.changeRole = async function(playerId, newRole) {
 
 // ─── Role Assignment ───
 window.assignRoles = async function() {
-  const aiPlayers = Object.entries(players).filter(([_,p]) => p.role === 'ai');
-  const humanPlayers = Object.entries(players).filter(([_,p]) => p.role === 'human');
+  const allEntries = Object.entries(players).filter(([_,p]) => p.status !== 'eliminated');
+  const total = allEntries.length;
 
-  if (aiPlayers.length === 0 || humanPlayers.length === 0) {
-    alert('需要至少1个AI和1个人类玩家');
+  if (total < 3) {
+    alert('至少需要3个玩家');
     return;
   }
+
+  // === BALANCE ROLES ===
+  // Target: ~60% AI, ~40% Human (Avalon standard ratios)
+  // 3-4人: 2AI + 1人类 | 5-6人: 3AI + 2人类 | 7-8人: 4AI + 3人类 | 9-10人: 5AI + 4人类
+  const targetHumans = Math.max(1, Math.floor(total * 0.35));
+  const targetAI = total - targetHumans;
+
+  let aiPlayers = allEntries.filter(([_,p]) => p.role === 'ai');
+  let humanPlayers = allEntries.filter(([_,p]) => p.role === 'human');
+
+  // Rebalance if needed
+  const rebalanced = [];
+  while (humanPlayers.length > targetHumans && aiPlayers.length < targetAI) {
+    // Too many humans — convert some to AI (pick random human)
+    const idx = Math.floor(Math.random() * humanPlayers.length);
+    const [id, p] = humanPlayers.splice(idx, 1)[0];
+    p.role = 'ai';
+    aiPlayers.push([id, p]);
+    rebalanced.push(`${p.codeName}: 人类→AI`);
+  }
+  while (aiPlayers.length > targetAI && humanPlayers.length < targetHumans) {
+    // Too many AI — convert some to human
+    const idx = Math.floor(Math.random() * aiPlayers.length);
+    const [id, p] = aiPlayers.splice(idx, 1)[0];
+    p.role = 'human';
+    humanPlayers.push([id, p]);
+    rebalanced.push(`${p.codeName}: AI→人类`);
+  }
+  // Edge case: 0 humans — force convert one
+  if (humanPlayers.length === 0) {
+    const idx = Math.floor(Math.random() * aiPlayers.length);
+    const [id, p] = aiPlayers.splice(idx, 1)[0];
+    p.role = 'human';
+    humanPlayers.push([id, p]);
+    rebalanced.push(`${p.codeName}: AI→人类（强制）`);
+  }
+  // Edge case: 0 AI — force convert one
+  if (aiPlayers.length === 0) {
+    const idx = Math.floor(Math.random() * humanPlayers.length);
+    const [id, p] = humanPlayers.splice(idx, 1)[0];
+    p.role = 'ai';
+    aiPlayers.push([id, p]);
+    rebalanced.push(`${p.codeName}: 人类→AI（强制）`);
+  }
+
+  if (rebalanced.length) dmLog(`阵营平衡调整: ${rebalanced.join(', ')}`);
+  dmLog(`最终阵营: ${aiPlayers.length} AI vs ${humanPlayers.length} 人类 (共${total}人)`);
 
   // Random overseer from AI
   const overseerIdx = Math.floor(Math.random() * aiPlayers.length);
@@ -649,34 +695,38 @@ window.assignRoles = async function() {
   const assassinIdx = Math.floor(Math.random() * humanPlayers.length);
   const assassinId = humanPlayers[assassinIdx][0];
 
+  // Dynamic team sizes based on player count
+  const ts = total <= 5 ? [2,2,3] : total <= 7 ? [2,3,3] : [3,3,4];
+
   if (!DEMO_MODE) {
-    // Assign special roles
-    for (const [id, _] of aiPlayers) {
+    // Write balanced roles + special roles
+    for (const [id, p] of aiPlayers) {
       await update(ref(db, `sessions/${sessionId}/players/${id}`), {
+        role: 'ai',
         specialRole: id === overseerId ? 'overseer' : 'citizen'
       });
     }
-    for (const [id, _] of humanPlayers) {
+    for (const [id, p] of humanPlayers) {
       await update(ref(db, `sessions/${sessionId}/players/${id}`), {
+        role: 'human',
         specialRole: id === assassinId ? 'assassin' : 'spy'
       });
     }
-    // Save to game state
     await set(ref(db, `sessions/${sessionId}/gameState`), {
       round: 1, aiWins: 0, humanWins: 0, rejections: 0,
-      teamSizes: [2, 3, 2],
+      teamSizes: ts,
       overseer: overseerId,
       assassin: assassinId
     });
-    gameState = { round: 1, aiWins: 0, humanWins: 0, rejections: 0, teamSizes: [2, 3, 2], overseer: overseerId, assassin: assassinId };
+    gameState = { round: 1, aiWins: 0, humanWins: 0, rejections: 0, teamSizes: ts, overseer: overseerId, assassin: assassinId };
   } else {
-    gameState = { round: 1, aiWins: 0, humanWins: 0, rejections: 0, teamSizes: [2, 3, 2] };
+    gameState = { round: 1, aiWins: 0, humanWins: 0, rejections: 0, teamSizes: ts };
   }
 
   const overseerName = players[overseerId]?.codeName || '?';
   const assassinName = players[assassinId]?.codeName || '?';
   dmLog(`角色分配完成: 安全主管=${overseerName}, 刺客=${assassinName}`);
-  alert(`角色分配完成!\n安全主管: ${overseerName}\n刺客: ${assassinName}`);
+  alert(`角色分配完成!\nAI ${aiPlayers.length} vs 人类 ${humanPlayers.length}\n安全主管: ${overseerName}\n刺客: ${assassinName}${rebalanced.length ? '\n\n阵营已自动平衡' : ''}`);
   document.getElementById('assignRolesBtn').disabled = true;
   document.getElementById('assignRolesBtn').textContent = '已分配';
   updateDmMissionBoard();

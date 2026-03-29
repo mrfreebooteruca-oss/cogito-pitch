@@ -462,12 +462,9 @@
 // Boot sequence animation
 (function(){
   const steps = [
-    ['初始化内核...', 15],
-    ['加载委员会协议...', 30],
-    ['连接 COGITO 网络...', 50],
-    ['验证安全证书...', 65],
-    ['同步公民数据库...', 80],
-    ['加载身份验证模块...', 92],
+    ['连接 COGITO 网络...', 30],
+    ['加载委员会协议...', 60],
+    ['同步公民数据库...', 85],
     ['系统就绪', 100],
   ];
   const fill = document.getElementById('bootFill');
@@ -475,12 +472,12 @@
   const screen = document.getElementById('bootScreen');
   let i = 0;
   function next(){
-    if(i >= steps.length){ setTimeout(()=>screen.classList.add('done'), 400); return; }
+    if(i >= steps.length){ setTimeout(()=>screen.classList.add('done'), 200); return; }
     const [text, pct] = steps[i];
     status.textContent = text;
     fill.style.width = pct + '%';
     i++;
-    setTimeout(next, 250 + Math.random() * 350);
+    setTimeout(next, 120 + Math.random() * 180);
   }
   next();
 })();
@@ -565,9 +562,9 @@ window.joinWithProgress = async function() {
   prog.style.display='block';
   const fill=document.getElementById('joinFill');
   const status=document.getElementById('joinStatus');
-  const steps=[['连接 COGITO 网络...',20],['验证会话密钥...',45],['加载公民数据库...',70],['初始化身份验证模块...',90],['接入完成',100]];
-  for(const[t,p]of steps){status.textContent=t;fill.style.width=p+'%';await delay(250+Math.random()*350);}
-  await delay(300);
+  const steps=[['连接 COGITO 网络...',25],['验证会话密钥...',55],['加载身份验证模块...',85],['接入完成',100]];
+  for(const[t,p]of steps){status.textContent=t;fill.style.width=p+'%';await delay(120+Math.random()*180);}
+  await delay(150);
   try{await joinSession();}catch(e){console.error(e);alert('连接失败: '+e.message);btn.style.display='';prog.style.display='none';}
 };
 
@@ -614,8 +611,8 @@ async function finishC(){
   S.codeName = NAMES[Math.floor(Math.random()*NAMES.length)];
   S.empId = 'CG-'+String(Math.floor(Math.random()*9000)+1000);
   show('s-analysis');
-  for(const id of['a1','a2','a3','a4']){await delay(500);document.getElementById(id).style.width='100%';}
-  await delay(600);document.getElementById('analysisStatus').textContent='身份确认完成。';await delay(500);
+  for(const id of['a1','a2','a3','a4']){await delay(200);document.getElementById(id).style.width='100%';}
+  await delay(300);document.getElementById('analysisStatus').textContent='身份确认完成。';await delay(200);
   if(!DEMO) await update(ref(db,`sessions/${S.sessionId}/players/${S.playerId}`),{role:S.role,specialRole:null,codeName:S.codeName,empId:S.empId,captchaScore:cs,status:'ready'});
   showIdentity();
 }
